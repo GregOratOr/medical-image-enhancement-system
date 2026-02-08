@@ -10,6 +10,17 @@ from src.datasets.preparation import split_dataset_blocks, image_to_patches
 
 @dataclass
 class PipelineConfig:
+    """Configuration for the data processing pipeline.
+
+    Attributes:
+        processed_path (Path): Root directory for saving processed data.
+        split_name (str): Name of the current split (e.g., 'train', 'val', 'test'). Defaults to "train".
+        extract_patches (bool): Whether to extract patches from the images. Defaults to False.
+        patch_size (int): Size of the square patches (HxW). Defaults to 256.
+        overlap (float): Overlap ratio for patch extraction. Defaults to 0.2.
+        threshold (float): Variance threshold for filtering empty patches. Defaults to 0.0.
+        clip_range (tuple[int, int] | None): Min and max values for intensity clipping. Defaults to None.
+    """
     processed_path: Path
     split_name: str = "train"
     extract_patches: bool = False
@@ -20,32 +31,35 @@ class PipelineConfig:
     
     @property
     def images_dir(self) -> Path:
+        """Returns the path to the images directory for the current split."""
         return self.processed_path / self.split_name / "images"
     
     @property
     def patches_dir(self) -> Path:
+        """Returns the path to the patches directory for the current split."""
         return self.processed_path / self.split_name / "patches"
 
     def create_dirs(self):
+        """Creates the necessary directories for images and patches if they don't exist."""
         self.images_dir.mkdir(parents=True, exist_ok=True)
         if self.extract_patches:
             self.patches_dir.mkdir(parents=True, exist_ok=True)
 
 
 def process_block(block_path: Path, p_config: PipelineConfig, global_slice_idx: int) -> int:
-    '''
-    Reads a block, saves full images, and optionally extracts patches.
-    
-    :param block_path: Path of the current block being processed.
-    :type block_path: Path
-    :param config: Contains parameters for the pipeline dataflow.
-    :type config: PipelineConfig
-    :param global_slice_idx: Global index of the current image being processed.
-    :type global_slice_idx: int
-    :return: Returns the updated global index of the next image in the block.
-    :rtype: int
+    """Reads a block, saves full images, and optionally extracts patches.
 
-    '''
+    Args:
+        block_path (Path): Path of the current NetCDF block file.
+        p_config (PipelineConfig): Configuration object containing pipeline parameters.
+        global_slice_idx (int): The starting global index for naming the images.
+
+    Returns:
+        int: The updated global index after processing all slices in the block.
+    
+    Raises:
+        ValueError: If the input volume is not 3D.
+    """
     try:
         with nc.Dataset(block_path, 'r') as block:
             scan_data = block.variables['tomo'][:] # Load volume
@@ -87,6 +101,11 @@ def process_block(block_path: Path, p_config: PipelineConfig, global_slice_idx: 
 
 
 def prepare_dataset(cfg: DatasetConfig) -> None:
+    """Orchestrates the entire data preparation pipeline (splitting, processing, patching).
+
+    Args:
+        cfg (DatasetConfig): Global configuration object defining paths and parameters.
+    """
     print("🚀 Starting Data Pipeline ...")
     
     # 1. Split Data

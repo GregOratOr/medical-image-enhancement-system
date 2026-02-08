@@ -4,18 +4,24 @@ from pathlib import Path
 from PIL import Image
 
 def split_dataset_blocks(data_path: Path, ratio: tuple[float, float, float]=(0.8, 0.1, 0.1), seed: int=42) -> dict[str, list]:
-    '''
-    Splits the dataset into training, validation and test sets using the given ratio and seed. Ensures no set leakage.
+    """Splits the dataset into training, validation and test sets using the given ratio and seed.
     
-    :param data_path: Path to the dataset directory.
-    :type data_path: Path
-    :param ratio: Ratio of the training, validation and test sets.
-    :type ratio: tuple[float, float, float]
-    :param seed: seed value for deterministic randomness.
-    :type seed: int
-    :return: Returns a dictionary with the set category as keys and the list of file paths as values.
-    :rtype: dict[str, list[Any]]
-    '''
+    Ensures deterministic splitting via a fixed seed and verifies no set leakage.
+
+    Args:
+        data_path (Path): Path to the dataset directory.
+        ratio (tuple[float, float, float], optional): Ratio of the training, validation and test sets. 
+            Defaults to (0.8, 0.1, 0.1).
+        seed (int, optional): Seed value for deterministic randomness. Defaults to 42.
+
+    Returns:
+        dict[str, list]: A dictionary with the set category ('train', 'val', 'test') as keys 
+        and the list of file paths as values.
+
+    Raises:
+        AssertionError: If the sum of ratios is not 1.0 or if leakage is detected.
+        ValueError: If no .nc files are found or if the dataset is too small.
+    """
     assert abs(sum(ratio) - 1.0) < 1e-6, "Sum of ratios must be 1."
 
     file_paths = sorted(list(data_path.glob("block*.nc")))
@@ -51,25 +57,19 @@ def split_dataset_blocks(data_path: Path, ratio: tuple[float, float, float]=(0.8
 
     return {'train': train_paths, 'val': val_paths, 'test': test_paths}
 
+
 def image_to_patches(save_dir: Path, image: Image.Image, image_idx: int, patch_size: int=256, overlap: float=0.2, threshold: float=0.0) -> None:
-    '''
-    Slices a PIL image into patches and saves them to disk.
-    
-    :param path: Path of the location to save the patches.
-    :type path: Path
-    :param image: Image to be converted to patches.
-    :type image: Image.Image | Any
-    :param image_idx: Global index of the image.
-    :type image_idx: int
-    :param patch_size: Size of the square patches.
-    :type patch_size: int
-    :param overlap: Fraction of overlap between the two patches.
-    :type overlap: float
-    :param threshold: The variance threshold for the image values to be accepted as a useful patch.
-    :type threshold: float
-    :return: None
-    :rtype: None
-    '''
+    """Slices a PIL image into patches and saves them to disk.
+
+    Args:
+        save_dir (Path): Path of the location to save the patches.
+        image (Image.Image): Image to be converted to patches.
+        image_idx (int): Global index of the image.
+        patch_size (int, optional): Size of the square patches. Defaults to 256.
+        overlap (float, optional): Fraction of overlap between the two patches. Defaults to 0.2.
+        threshold (float, optional): The variance threshold for the image values to be accepted 
+            as a useful patch. Defaults to 0.0.
+    """
     img_arr = np.array(image)
     h, w = img_arr.shape[:2]
     step = int(patch_size * (1 - overlap))
