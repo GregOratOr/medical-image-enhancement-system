@@ -1,13 +1,7 @@
-import sys
-from pathlib import Path
 import torch
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from src.utils.logging_utils import get_noise_name
-
-# Path Setup
-project_root = Path(__file__).resolve().parent.parent
-sys.path.append(str(project_root))
 
 from configs.dataset_config import default_cfg
 from src.datasets.dataset import CTScans
@@ -41,7 +35,11 @@ def visualize_compound_noise():
     ds = CTScans(image_dir=val_path, transform=T.Compose([T.CenterCrop(512), T.ToTensor()]))
     
     # Get clean image (Dataset returns input=clean, target=clean currently)
-    clean_tensor, _ = ds[0] 
+    result = ds[0]
+    if len(result) == 2:
+        noisy, clean_tensor = result
+    else:
+        noisy, noisy2, clean_tensor = result
     
     # Apply Compounding
     noisy_tensor = compound_transform(clean_tensor.clone())

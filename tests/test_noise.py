@@ -1,17 +1,12 @@
-import sys
-from pathlib import Path
-import torch
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
-
-project_root = Path(__file__).resolve().parent.parent
-sys.path.append(str(project_root))
 
 from src.datasets.dataset import CTScans
 from src.transforms.noise import AddGaussianNoise, RandomSpectralDrop
 from configs.dataset_config import default_cfg
+from src.utils.logging_utils import get_noise_name
 
-def test_noise_vis():
+def test_noise_vis() -> None:
     # 1. Define Pipeline
     # Common: Crop & Convert
     common_tx = T.Compose([
@@ -30,14 +25,18 @@ def test_noise_vis():
     ds = CTScans(image_dir=val_path, transform=common_tx, noise_transform=noise_tx)
     
     # 3. Get Sample
-    noisy, clean = ds[0]
+    result = ds[0]
+    if len(result) == 2:
+        noisy, clean = result
+    else:
+        noisy, noisy2, clean = result
     
     # 4. Plot
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].imshow(clean.squeeze(), cmap='gray')
     ax[0].set_title("Target (Clean)")
     ax[1].imshow(noisy.squeeze(), cmap='gray')
-    ax[1].set_title("Input (Spectral + Gaussian Noise)")
+    ax[1].set_title(f"Input ({get_noise_name(noise_tx)})")
     plt.show()
 
     print("\n✅ Noise Test Concluded!!!")

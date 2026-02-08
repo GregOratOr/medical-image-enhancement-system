@@ -3,23 +3,28 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
 import torchvision.transforms as T
+from typing import Callable, Optional
 
 class CTScans(Dataset):
     """A PyTorch Dataset for loading CT scan images and applying noise on-the-fly.
 
     This dataset reads PNG images from a directory, converts them to grayscale,
-    and returns pairs of (noisy_image, clean_image) for training denoising models.
+    and returns pairs of images for training denoising models depending on its mode.
+
+    Modes:
+    - 'n2n': Returns (Noisy_1, Noisy_2, Clean) for self-supervised Noise2Noise.
+    - 'n2c': Returns (Noisy, Clean) for standard supervised Noise2Clean.
     """
 
-    def __init__(self, image_dir: Path | str, transform=None, noise_transform=None) -> None:
+    def __init__(self, image_dir: Path | str, transform: Optional[Callable]=None, noise_transform: Optional[Callable]=None, mode: str="n2n") -> None:
         """Initializes the CTScans dataset.
 
         Args:
-            image_dir (Path | str): Path to the directory containing processed PNG images.
-            transform (callable, optional): Optional transform to be applied on the clean image 
+            image_dir (Path | str): Path to directory containing processed PNG images.
+            transform (Callable, optional): Transforms for the underlying clean image 
                 (e.g., ToTensor, Normalize, RandomCrop). Defaults to None.
-            noise_transform (callable, optional): Optional transform to generate the noisy input 
-                from the clean image. Defaults to None.
+            noise_transform (Callable, optional): Transform that adds synthetic noise. Defaults to None
+            mode (str, optional): Training mode ('n2n' or 'n2c'). Defaults to 'n2n'.
 
         Raises:
             FileNotFoundError: If no .png files are found in the specified directory.
@@ -27,11 +32,12 @@ class CTScans(Dataset):
         self.image_dir = Path(image_dir)
         self.transform = transform
         self.noise_transform = noise_transform
+        self.mode = mode
         
-        # 2. List all PNGs
+        # List all PNGs
         self.files = sorted(list(self.image_dir.glob("*.png")))
         
-        # 3. Sanity check
+        # Sanity check
         if len(self.files) == 0:
             raise FileNotFoundError(f"No images found in {self.image_dir}. ⚠️ Did you run make_dataset.py?")
 
@@ -43,8 +49,8 @@ class CTScans(Dataset):
         """
         return len(self.files)
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Retrieves an image pair (noisy, clean) by index.
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Retrieves image pairs based on the selected mode for the given index.
 
         Args:
             idx (int): Index of the image to retrieve.
@@ -52,6 +58,11 @@ class CTScans(Dataset):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: A tuple containing:
                 - noisy_img (Tensor): The input image with synthetic noise applied.
+                - clean_img (Tensor): The ground truth clean image.
+            OR
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A tuple containing:
+                - noisy_img1 (Tensor): The input image with synthetic noise applied.
+                - noisy_img2 (Tensor): The input image with synthetic noise applied(Differnt from the noisy_img1).
                 - clean_img (Tensor): The ground truth clean image.
         """
         img_path = self.files[idx]
@@ -66,9 +77,22 @@ class CTScans(Dataset):
             # Fallback if no transform is provided
             clean_img = T.ToTensor()(clean_img)
         
-        noisy_img = clean_img.clone()
-
+        # 3. Generate Noisy Versions
         if self.noise_transform:
-            noisy_img = self.noise_transform(noisy_img)
-
-        return noisy_img, clean_img
+            # Generate first noisy version (Input)
+            noisy_1 = self.noise_transform(clean_img.clone())
+            
+            if self.mode == 'n2n':
+                # Generate second INDEPENDENT noisy version (Target)
+                noisy_2 = self.noise_transform(clean_img.clone())
+                
+                # Return tuple: (Input, Target, GroundTruth)
+                # GroundTruth is strictly for validation metrics (PSNR), NOT loss.
+                return noisy_1, noisy_2, clean_img
+            
+            elif self.mode == 'n2c':
+                # Standard training: Input=Noisy, Target=Clean
+                return noisy_1, clean_img
+        
+        # Fallback if no noise transform (just return clean, clean)
+        return clean_img, clean_img
