@@ -1,0 +1,24 @@
+[project]
+name = "medical-image-enhancement-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "kornia>=0.8.2",
+    "matplotlib>=3.10.8",
+    "netcdf4",
+    "pillow>=12.0.0",
+    "scikit-image>=0.26.0",
+    "sewar>=0.4.6",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "tqdm>=4.66.5",
+]
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
+extra-index-url = [
+  "https://download.pytorch.org/whl/cu130"
+]
