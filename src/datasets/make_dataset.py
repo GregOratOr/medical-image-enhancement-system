@@ -14,6 +14,7 @@ class PipelineConfig:
 
     Attributes:
         processed_path (Path): Root directory for saving processed data.
+        var_name (str): Name of the variable in scan files to read.
         split_name (str): Name of the current split (e.g., 'train', 'val', 'test'). Defaults to "train".
         extract_patches (bool): Whether to extract patches from the images. Defaults to False.
         patch_size (int): Size of the square patches (HxW). Defaults to 256.
@@ -22,6 +23,7 @@ class PipelineConfig:
         clip_range (tuple[int, int] | None): Min and max values for intensity clipping. Defaults to None.
     """
     processed_path: Path
+    var_name:str
     split_name: str = "train"
     extract_patches: bool = False
     patch_size: int = 256
@@ -118,6 +120,7 @@ def prepare_dataset(cfg: DatasetConfig) -> None:
 
         # Setup Config for this split
         p_config = PipelineConfig(
+            var_name=cfg.VAR_NAME,
             processed_path=cfg.PROCESSED_PATH,
             split_name=split_name,
             extract_patches=cfg.EXTRACT_PATCHES,

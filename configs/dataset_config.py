@@ -7,6 +7,7 @@ class DatasetConfig:
 
     Attributes:
         name (str): Unique identifier for this configuration.
+        VAR_NAME (str): Name of the variable in scan files to read.
         DEBUG (bool): If True, runs in debug mode (verbose output). Defaults to True.
         RAW_DATA_PATH (Path): Directory containing the raw NetCDF (.nc) files. Defaults to "./data/raw/".
         PROCESSED_PATH (Path): Output directory for processed images and patches. Defaults to "./data/processed/".
@@ -20,6 +21,7 @@ class DatasetConfig:
         VAR_THRESHOLD (float): Minimum variance required to save a patch (filters empty background). Defaults to 0.0.
     """
     name: str
+    VAR_NAME: str = 'tomo'
     DEBUG: bool = True
     RAW_DATA_PATH: Path = Path("./data/raw/")
     PROCESSED_PATH: Path = Path("./data/processed/")
@@ -37,8 +39,6 @@ default_cfg = DatasetConfig(name="default")
 config1 = DatasetConfig(
     name="Test Config 1",
     DEBUG = True,
-    RAW_DATA_PATH = Path("./data/raw/"),
-    PROCESSED_PATH = Path("./data/processed/"),
     RATIO = (0.8, 0.1, 0.1),
     SEED = 42,
     MIN_VAL = 10750,
@@ -48,4 +48,5 @@ config1 = DatasetConfig(
     OVERLAP = 0.2,
     VAR_THRESHOLD = 0.0
 )
+
 

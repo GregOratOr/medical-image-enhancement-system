@@ -1,3 +1,4 @@
+import warnings
 import torch
 from torch.utils.data import Dataset
 from pathlib import Path
@@ -77,6 +78,9 @@ class CTScans(Dataset):
             # Fallback if no transform is provided
             clean_img = T.ToTensor()(clean_img)
         
+        # Sanity check.
+        assert isinstance(clean_img, torch.Tensor), f"Expected torch.Tensor after transform, got {type(clean_img)}"
+
         # 3. Generate Noisy Versions
         if self.noise_transform:
             # Generate first noisy version (Input)
@@ -94,5 +98,6 @@ class CTScans(Dataset):
                 # Standard training: Input=Noisy, Target=Clean
                 return noisy_1, clean_img
         
-        # Fallback if no noise transform (just return clean, clean)
-        return clean_img, clean_img
+        # Fallback if no noise transform. Just return (clean, clean) or (clean, clean, clean) depending on mode.
+        warnings.warn("No Noise Transforms provides, falling back to clean image tuples")
+        return (clean_img, clean_img) if self.mode == 'n2c' else (clean_img, clean_img, clean_img)
