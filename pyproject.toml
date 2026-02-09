@@ -15,6 +15,7 @@ dependencies = [
     "torchaudio",
     "torchvision",
     "tqdm>=4.66.5",
+    "wandb>=0.24.2",
 ]
 
 [tool.uv]
