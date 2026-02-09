@@ -58,6 +58,14 @@ class ConvLayer(nn.Module):
             nn.init.zeros_(self.conv.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the convolutional layer with activation
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (Batch x Channels x Height x Width).
+           
+        Returns:
+            torch.Tensor: Output tensor of shape (Batch x Channels x Height x Width).
+        """
         x = self.conv(x)
         x = self.act(x)
         return x
@@ -437,6 +445,18 @@ class Noise2Noise(nn.Module):
         depth: int = 4, 
         activation_mode: str = 'leaky_relu'
     ):
+        """Initializes the generalized Noise2Noise U-Net.
+
+        Args:
+            in_channels (int, optional): Number of input image channels (e.g., 1 for grayscale CT). Defaults to 1.
+            out_channels (int, optional): Number of output image channels. Defaults to 1.
+            base_channels (int, optional): Number of filters in the first encoder block. Defaults to 48.
+            depth (int, optional): Number of downsampling/upsampling stages in the U-Net. 
+                Higher depth increases the receptive field but requires more memory. Defaults to 4.
+            activation_mode (str, optional): The type of activation function to use throughout the network 
+                (e.g., 'leaky_relu', 'relu', 'gelu'). Defaults to 'leaky_relu'.
+        """
+
         super().__init__()
         self.depth = depth
         
@@ -479,6 +499,14 @@ class Noise2Noise(nn.Module):
         self._initialize_weights()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the dynamic U-Net.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (Batch, In_Channels, H, W).
+
+        Returns:
+            torch.Tensor: Denoised output tensor of shape (Batch, Out_Channels, H, W).
+        """
         skips = []
         
         # Encoder

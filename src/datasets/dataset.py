@@ -13,8 +13,8 @@ class CTScans(Dataset):
     and returns pairs of images for training denoising models depending on its mode.
 
     Modes:
-    - 'n2n': Returns (Noisy_1, Noisy_2, Clean) for self-supervised Noise2Noise.
-    - 'n2c': Returns (Noisy, Clean) for standard supervised Noise2Clean.
+        - 'n2n': Returns (Noisy_1, Noisy_2, Clean) for self-supervised Noise2Noise.
+        - 'n2c': Returns (Noisy, Clean) for standard supervised Noise2Clean.
     """
 
     def __init__(self, image_dir: Path | str, transform: Optional[Callable]=None, noise_transform: Optional[Callable]=None, mode: str="n2n") -> None:
@@ -57,14 +57,8 @@ class CTScans(Dataset):
             idx (int): Index of the image to retrieve.
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor]: A tuple containing:
-                - noisy_img (Tensor): The input image with synthetic noise applied.
-                - clean_img (Tensor): The ground truth clean image.
-            OR
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A tuple containing:
-                - noisy_img1 (Tensor): The input image with synthetic noise applied.
-                - noisy_img2 (Tensor): The input image with synthetic noise applied(Differnt from the noisy_img1).
-                - clean_img (Tensor): The ground truth clean image.
+            (noisy_img1, noisy_img2, clean_img) if **mode='n2n'**.
+            (noisy_img, clean_img) if **mode='n2c'**.
         """
         img_path = self.files[idx]
 

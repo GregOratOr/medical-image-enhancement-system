@@ -15,8 +15,7 @@ def split_dataset_blocks(data_path: Path, ratio: tuple[float, float, float]=(0.8
         seed (int, optional): Seed value for deterministic randomness. Defaults to 42.
 
     Returns:
-        dict[str, list]: A dictionary with the set category ('train', 'val', 'test') as keys 
-        and the list of file paths as values.
+        dict[str, list]: A dictionary with the set category ('train', 'val', 'test') as keys and the list of file paths as values.
 
     Raises:
         AssertionError: If the sum of ratios is not 1.0 or if leakage is detected.
