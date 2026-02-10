@@ -23,3 +23,12 @@ index-url = "https://pypi.org/simple"
 extra-index-url = [
   "https://download.pytorch.org/whl/cu130"
 ]
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.0",
+    "mkdocs-toggle-sidebar-plugin>=0.0.9",
+    "mkdocstrings[python]>=1.0.3",
+    "pymdown-extensions>=10.20.1",
+]

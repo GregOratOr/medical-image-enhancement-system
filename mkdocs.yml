@@ -1,0 +1,78 @@
+site_name: Medical Image Quality Enhancement
+site_url: https://your-project-docs.com
+
+theme:
+  name: material
+  features:
+    - navigation.tabs          
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+markdown_extensions:
+  - toc:
+      permalink: true       # Adds a clickable link icon to headers
+      toc_depth: 3
+  - attr_list
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - sys.path.append("src") # Points to your source code directory
+          options:
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  
+  - User Guide:
+    - Introduction:
+      - Overview: user_guide/overview.md
+      - Installation: user_guide/installation.md # Docker & WSL setup
+    - Core Concepts:
+      - Noise2Noise Model: user_guide/concepts/noise2noise.md
+      - CT Scan Denoising: user_guide/concepts/ct_denoising.md
+      - Experiment Tracking: user_guide/concepts/logging.md
+    - Deployment:
+      - Real-time Inference: user_guide/deployment/real_time.md
+      - Docker Deployment: user_guide/deployment/docker.md
+
+  - API Reference:
+    - Core:
+      - Models: api/models.md     # Noise2Noise model class
+      - Trainers: api/trainers.md
+    - Data:
+      - Datasets: api/datasets.md      # CT Scan dataset loaders
+      - Noise Generation: api/noise_gen.md    # Custom noise modules
+    - Utils:
+      - Image Processing: api/image_processing.md  # Preprocessing & postprocessing
+      - Experiment Logging: api/logger.md          # Custom logging utility
+
+  - Tutorials:
+    - Training Your First Model: tutorials/training.md
+    - Evaluating Denoising Quality: tutorials/evaluation.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/GregOratOr/medical-image-enhancement-system
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
