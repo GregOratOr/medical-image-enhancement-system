@@ -5,14 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "kornia>=0.8.2",
     "matplotlib>=3.10.8",
     "netcdf4",
     "pillow>=12.0.0",
     "scikit-image>=0.26.0",
-    "sewar>=0.4.6",
+    "tensorboard>=2.20.0",
     "torch",
     "torchaudio",
+    "torchmetrics>=1.0.3",
     "torchvision",
     "tqdm>=4.66.5",
     "wandb>=0.24.2",
