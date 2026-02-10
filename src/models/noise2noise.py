@@ -399,7 +399,6 @@ class EncoderBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.block(x)
 
-
 class DecoderBlock(nn.Module):
     """A single decoder stage: Upsample -> Concat -> Conv -> Conv.
     
@@ -426,8 +425,7 @@ class DecoderBlock(nn.Module):
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
         x = self.upsample(x)
         x = self.concat([x, skip])
-        return self.block(x)
-    
+        return self.block(x)    
 
 class Noise2Noise(nn.Module):
     """A modern, generalized U-Net architecture for Image Denoising.
