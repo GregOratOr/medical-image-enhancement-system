@@ -1,0 +1,95 @@
+# configs/train.yaml
+
+experiment:
+  project_name: "noise2noise-medical"
+  name: "experiment_01"
+  description: "Baseline Gaussian noise training with U-Net"
+  tags: ["baseline", "gaussian", "unet"]
+
+data:
+  train_dir: "data/processed/train"
+  val_dir: "data/processed/val"
+  data_source: "patches"  # "images" or "patches"
+  
+  batch_size: 4
+  num_workers: 4
+  
+  transform_params:
+    crop_size: 128
+  
+  # NOISE CONFIGURATION
+  # We can use a list here to support single OR multiple (compound) noises
+  noise_ops:
+    - type: "gaussian"
+      params:
+        name: "Gaussian"
+        mean: 0.0
+        std_range: [0.01, 0.05]  # Randomly sample std from this range for each image
+        
+    - type: "poisson"
+      params:
+        name: "Poisson"
+        lam_range: [50.0, 100.0]
+    
+    - type: "spec_poisson"
+      params:
+        name: "Spectral Poisson"
+        strength_range: [0.1, 0.2]
+        mask_ratio: 0.05
+    
+    - type: "spec_gaussian_blur"
+      params:
+        name: "Gaussian Blur"
+        sigma_range: [0.1, 0.5]
+    
+    - type: "spec_bernoulli"
+      params:
+        name: "Bernoulli"
+        prob_drop_range: [0.1, 0.3]
+    
+    - type: "spec_drop"
+      params:
+        name: "Spectral Drop"
+        drop_ratio: 0.1
+    
+    - type: "spec_gaussian_noise"
+      params:
+        name: "Spectral Gaussian"
+        std_range: [0.1, 0.2]
+
+
+model:
+  architecture: "unet-n2n"
+  in_channels: 1
+  out_channels: 1
+  depth: 4
+  base_channels: 48
+  activation: "leaky_relu"
+
+training:
+  epochs: 100
+  lr: 0.0003
+  weight_decay: 0.0
+  accum_steps: 1
+  loss_alpha: 0.5
+  monitor_metrics:
+    "val_loss": "min"
+  save_interval: 10
+  
+  # OPTIMIZER & SCHEDULER
+  optimizers:
+    default: # Name of the optimizer assigned to a model. E.g. for a GAN (generator/discriminator)
+      type: "adam"  # adam, sgd, adamw
+      params:
+        betas: [0.9, 0.999]
+        eps: 1e-08
+        weight_decay: 0.0
+        amsgrad: false
+
+  scheduler: 
+    default: # Name of the scheduler assigned to a model.
+      type: "plateau"
+      params:
+        patience: 10
+        factor: 0.5
+        mode: "min"
