@@ -3,8 +3,8 @@ import torch
 import torchvision.utils as tvutils
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
-from typing import Optional, Dict, List
 import wandb
+
 
 class UnifiedLogger:
     """A hybrid logger supporting TensorBoard, W&B, and standard File logging.
@@ -17,10 +17,11 @@ class UnifiedLogger:
         self, 
         log_dir: str | Path, 
         experiment_name: str, 
-        config: Optional[Dict] = None,
+        name: str = "LOGGER",
+        config: dict | None = None,
         use_tensorboard: bool = True,
         use_wandb: bool = False
-    ):
+    ) -> None:
         """Initializes the UnifiedLogger with specified backends.
 
         Args:
@@ -34,6 +35,7 @@ class UnifiedLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.use_tb = use_tensorboard
         self.use_wandb = use_wandb
+        self.name = name
 
         # 1. Standard Console/File Logger
         self._setup_standard_logging()
@@ -54,7 +56,7 @@ class UnifiedLogger:
             )
             self.info("Weights & Biases backend initialized.")
 
-    def _setup_standard_logging(self):
+    def _setup_standard_logging(self) -> None:
         """Configures the standard Python logging module to write to file and console.
 
         Sets up a file handler for 'session.log' inside the log directory and a 
@@ -68,9 +70,9 @@ class UnifiedLogger:
                 logging.StreamHandler()
             ]
         )
-        self.console = logging.getLogger("N2N_Logger")
+        self.console = logging.getLogger(self.name)
 
-    def info(self, msg: str):
+    def info(self, msg: str) -> None:
         """Logs an informational message to the console and log file.
 
         Args:
@@ -78,11 +80,11 @@ class UnifiedLogger:
         """
         self.console.info(msg)
 
-    def log_metrics(self, metrics: Dict[str, float], step: int, prefix: str = ""):
+    def log_metrics(self, metrics: dict[str, float], step: int, prefix: str = "") -> None:
         """Sends scalar metrics to all active backends.
 
         Args:
-            metrics (Dict[str, float]): A dictionary of metric names and their values (e.g., {'loss': 0.5}).
+            metrics (dict[str, float]): A dictionary of metric names and their values (e.g., {'loss': 0.5}).
             step (int): The current global training step or epoch.
             prefix (str, optional): A string prefix to group metrics (e.g., 'train', 'val'). Defaults to "".
         """
@@ -101,7 +103,7 @@ class UnifiedLogger:
             wandb_metrics = {f"{prefix}/{k}" if prefix else k: v for k, v in metrics.items()}
             wandb.log(wandb_metrics, step=step)
 
-    def log_images(self, tag: str, images: List[torch.Tensor], step: int):
+    def log_images(self, tag: str, images: list[torch.Tensor], step: int) -> None:
         """Logs a horizontal grid of comparison images.
 
         Concatenates a list of tensors horizontally and logs them as a single image grid.
@@ -109,7 +111,7 @@ class UnifiedLogger:
 
         Args:
             tag (str): Identifier for the image group (e.g., 'val/predictions').
-            images (List[torch.Tensor]): List of image tensors to concatenate. Each should be [B, C, H, W].
+            images (list[torch.Tensor]): List of image tensors to concatenate. Each should be [B, C, H, W].
             step (int): The current global training step.
         """
         # Concatenate images horizontally [B, 1, H, W] -> [1, H, W * N]
@@ -122,7 +124,7 @@ class UnifiedLogger:
         if self.use_wandb:
             wandb.log({tag: [wandb.Image(grid, caption=f"Step {step}")]}, step=step)
 
-    def close(self):
+    def close(self) -> None:
         """Cleanly shutdown loggers.
 
         Closes the TensorBoard writer and finishes the W&B run if they are active.

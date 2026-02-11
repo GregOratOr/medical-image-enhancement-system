@@ -1,5 +1,9 @@
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
+from datetime import datetime
+
+# TODO: Model config, training config, Experiment config, 
 
 @dataclass
 class DatasetConfig:
@@ -34,19 +38,4 @@ class DatasetConfig:
     OVERLAP: float = 0.2
     VAR_THRESHOLD: float = 0.0
 
-default_cfg = DatasetConfig(name="default")
-
-config1 = DatasetConfig(
-    name="Test Config 1",
-    DEBUG = True,
-    RATIO = (0.8, 0.1, 0.1),
-    SEED = 42,
-    MIN_VAL = 10750,
-    MAX_VAL = 21800,
-    EXTRACT_PATCHES = True,
-    PATCH_SIZE = 512,
-    OVERLAP = 0.2,
-    VAR_THRESHOLD = 0.0
-)
-
-
+default_dataset_cfg = DatasetConfig(name="default")

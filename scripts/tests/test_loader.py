@@ -1,4 +1,4 @@
-from configs.dataset_config import default_cfg
+from configs.config import default_dataset_cfg
 from src.datasets.dataset import CTScans
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
@@ -19,11 +19,11 @@ def test_loader():
     # Initialize Dataset using Config
     try:
         # Construct path: data/processed/train/patches
-        train_path = default_cfg.PROCESSED_PATH / "train" / "patches"
+        train_path = default_dataset_cfg.PROCESSED_PATH / "train" / "patches"
         train_ds = CTScans(image_dir=train_path, transform=train_transform)
         
         # Construct path: data/processed/val/images
-        val_path = default_cfg.PROCESSED_PATH / "val" / "images"
+        val_path = default_dataset_cfg.PROCESSED_PATH / "val" / "images"
         val_ds = CTScans(image_dir=val_path, transform=val_transform)
         
         print(f"✅ Train Dataset Loaded: {len(train_ds)} items from {train_path}")
@@ -35,7 +35,7 @@ def test_loader():
         return
 
     # Initialize DataLoader
-    batch_size = getattr(default_cfg, 'BATCH_SIZE', 4)
+    batch_size = getattr(default_dataset_cfg, 'BATCH_SIZE', 4)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     tx, ty = next(iter(train_loader))

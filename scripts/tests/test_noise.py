@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from src.datasets.dataset import CTScans
 from src.transforms.noise import AddGaussianNoise, RandomSpectralDrop
-from configs.dataset_config import default_cfg
+from configs.config import default_dataset_cfg
 from src.utils.logging_utils import get_noise_name
 
 def test_noise_vis() -> None:
@@ -21,7 +21,7 @@ def test_noise_vis() -> None:
     ])
 
     # 2. Load Data
-    val_path = default_cfg.PROCESSED_PATH / "val" / "images"
+    val_path = default_dataset_cfg.PROCESSED_PATH / "val" / "images"
     ds = CTScans(image_dir=val_path, transform=common_tx, noise_transform=noise_tx)
     
     # 3. Get Sample

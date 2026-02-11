@@ -1,10 +1,9 @@
 import netCDF4 as nc
-import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from dataclasses import dataclass
 
-from configs.dataset_config import DatasetConfig, default_cfg
+from configs.config import DatasetConfig, default_dataset_cfg
 from src.utils.image_operations import process_slice
 from src.datasets.preparation import split_dataset_blocks, image_to_patches
 
@@ -139,7 +138,7 @@ def prepare_dataset(cfg: DatasetConfig) -> None:
 
 
 def main():
-    prepare_dataset(default_cfg)
+    prepare_dataset(default_dataset_cfg)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.amp.autocast_mode import autocast
 from torch.optim.optimizer import Optimizer as Optimizer
-from typing import Dict, Any
+from typing import Any
 
 from src.trainers.engine import Engine
 from src.evaluation.metrics import Metrics
@@ -20,14 +20,14 @@ class Noise2NoiseTrainer(Engine):
     # We don't need an __init__ here unless we need to add 
     # specific variables that Engine doesn't have. 
     # For now, Engine's __init__ is enough!
-    def __init__(self, model: nn.Module, criterion: Dict[str, nn.Module], optimizers: torch.optim.Optimizer, **kwargs):
+    def __init__(self, model: nn.Module, criterion: dict[str, nn.Module], optimizers: torch.optim.Optimizer, **kwargs):
         super().__init__(model=model, criterion=criterion, optimizers=optimizers, **kwargs)
 
         self.model: nn.Module = model
-        self.criterion: Dict[str, nn.Module] = criterion
+        self.criterion: dict[str, nn.Module] = criterion
         self.optimizers: torch.optim.Optimizer = optimizers
 
-    def train_step(self, batch: Any, batch_idx: int) -> Dict[str, float]:
+    def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         # 1. Unpack Data
         # source = Input Noisy Image
         # target = Another Noisy Version (The "Target")
@@ -67,7 +67,7 @@ class Noise2NoiseTrainer(Engine):
             "l1": loss_l1.item()
         }
     
-    def validate_step(self, batch: Any, batch_idx: int) -> Dict[str, float]:
+    def validate_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         # 1. Unpack Data
         # CRITICAL DIFFERENCE: We NEED 'clean_gt' here for true validation!
         source, target, clean_gt = batch

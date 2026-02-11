@@ -3,7 +3,7 @@ import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from src.utils.logging_utils import get_noise_name
 
-from configs.dataset_config import default_cfg
+from configs.config import default_dataset_cfg
 from src.datasets.dataset import CTScans
 from src.transforms.noise import (
     AddGaussianNoise, 
@@ -29,7 +29,7 @@ def visualize_compound_noise():
     ])
     
     # Load One Clean Image
-    val_path = default_cfg.PROCESSED_PATH / "val" / "images"
+    val_path = default_dataset_cfg.PROCESSED_PATH / "val" / "images"
     
     # We use a dummy transform just to get the clean Tensor
     ds = CTScans(image_dir=val_path, transform=T.Compose([T.CenterCrop(512), T.ToTensor()]))

@@ -1,8 +1,8 @@
 import torch
-from torch.amp.grad_scaler import GradScaler
 import torch.nn as nn
+from torch.amp.grad_scaler import GradScaler
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, Optional
+from typing import Any
 from pathlib import Path
 from tqdm import tqdm
 
@@ -15,6 +15,8 @@ class FallbackLogger:
     """
     def __init__(self):
         self.log_dir = Path(f"./tests/debug/Experiment-{datetime.now()}") # Default for debug runs
+        self.info("[Engine] FallbackLogger assigned and initialized.")
+        self.info("[Engine] NOTE: This logger only prints to console.")
     
     def info(self, msg: str):
         print(f"[Engine] {msg}")
@@ -37,16 +39,31 @@ class Engine(ABC):
 
     def __init__(
         self,
-        model: Union[nn.Module, Dict[str, nn.Module]],
-        loaders: Dict[str, torch.utils.data.DataLoader],
-        optimizers: Union[torch.optim.Optimizer, Dict[str, torch.optim.Optimizer]],
-        criterion: Union[nn.Module, Dict[str, nn.Module]],
-        schedulers: Union[Any, Dict[str, Any]] = None,
-        config: Optional[Dict] = None,
-        logger: Optional[UnifiedLogger] = None,
-        device: str = "cuda"
+        model: nn.Module | dict[str, nn.Module],
+        loaders: dict[str, torch.utils.data.DataLoader],
+        optimizers: torch.optim.Optimizer | dict[str, torch.optim.Optimizer],
+        criterion: nn.Module | dict[str, nn.Module],
+        schedulers: torch.optim.lr_scheduler.LRScheduler | dict[str, torch.optim.lr_scheduler.LRScheduler] | None = None,
+        config: dict | None = None,
+        logger: UnifiedLogger | None = None,
+        device: str = "cpu"
     ):
-        
+        """
+        Initializes the Trainer class.
+
+        Args:
+            model (nn.Module | dict[str, nn.Module]): The model(s) to train.
+            loaders (dict[str, torch.utils.data.DataLoader]): Data loaders for training and validation datatasets.
+            optimizers (torch.optim.Optimizer | dict[str, torch.optim.Optimizer]): Optimizer(s) for training.
+            criterion (nn.Module | dict[str, nn.Module]): Loss function(s) for training.
+            schedulers (torch.optim.lr_scheduler.LRScheduler | dict[str, torch.optim.lr_scheduler.LRScheduler] | None, optional): LR scheduler(s) for training. Defaults to None.
+            config (dict | None, optional): Config object for various parameters of the training process . Defaults to None.
+            logger (UnifiedLogger | None, optional): Logger object. Defaults to None.
+            device (str, optional): Device to train on ('cuda' or 'cpu'). Defaults to "cpu".
+
+        Raises:
+            ValueError: If the logger is not initialized correctly.
+        """
         self.cfg = config or {}
         self.logger = logger if logger is not None else FallbackLogger()
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
@@ -83,7 +100,7 @@ class Engine(ABC):
             raise ValueError("Logger not initialized.")
 
     @abstractmethod
-    def train_step(self, batch: Any, batch_idx: int) -> Dict[str, float]:
+    def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         """
         Execute a single training step.
         Must return a dictionary of scalar metrics (e.g., {'loss': 0.5}).
@@ -91,16 +108,23 @@ class Engine(ABC):
         pass
 
     @abstractmethod
-    def validate_step(self, batch: Any, batch_idx: int) -> Dict[str, float]:
+    def validate_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         """
         Execute a single validation step.
         Must return a dictionary of scalar metrics (e.g., {'psnr': 30.0}).
         """
         pass
 
-    def _run_epoch(self, epoch: int, mode: str = "train") -> Dict[str, float]:
+    def _run_epoch(self, epoch: int, mode: str = "train") -> dict[str, float]:
         """
         Iterates over the DataLoader for one epoch.
+
+        Args:
+            epoch (int): Current epoch.
+            mode (str, optional): Decides between a training or a validation epoch. Defaults to "train".
+
+        Returns:
+            dict[str, float]: Returns average performance metrics after the epoch.
         """
         is_train = mode == "train"
         loader = self.loaders["train"] if is_train else self.loaders["val"]
@@ -147,19 +171,19 @@ class Engine(ABC):
         avg_metrics = {k: v / metric_counts[k] for k, v in epoch_metrics.items()}
         return avg_metrics
 
-    def _step_schedulers(self, val_metrics: Dict[str, float]):
+    def _step_schedulers(self, val_metrics: dict[str, float]):
         """Steps all schedulers. Handles ReduceLROnPlateau specially."""
         if not self.schedulers: 
             return
         
-        # FIX: Explicitly handle Dict vs List vs Single Object
+        # Handle Dict vs List vs Single Object
         if isinstance(self.schedulers, dict):
-            # Extract the actual scheduler objects from the dict values
+            # Extract the actual scheduler objects from the Dict values
             schedulers_list = list(self.schedulers.values())
         elif isinstance(self.schedulers, list):
             schedulers_list = self.schedulers
         else:
-            # Assume it's a single scheduler object
+            # It's a single scheduler object
             schedulers_list = [self.schedulers]
 
         for sched in schedulers_list:
@@ -168,7 +192,13 @@ class Engine(ABC):
             else:
                 sched.step()
 
-    def _get_scheduler_state(self):
+    def _get_scheduler_state(self) -> dict[str, Any] | list[dict[str, Any]] | None:
+        """
+        Gets the state dict(s) for scheduler(s).
+
+        Returns:
+            _type_: Returns a state dictionary or list of state disctionaries.
+        """
         if not self.schedulers: return None
         if isinstance(self.schedulers, dict):
             return {k: v.state_dict() for k, v in self.schedulers.items()}
@@ -177,7 +207,9 @@ class Engine(ABC):
         else:
             return self.schedulers.state_dict()
 
-    def _load_scheduler_state(self, state):
+    def _load_scheduler_state(self, state) -> None:
+        assert self.schedulers is not None, "No schedulers found."
+
         if isinstance(self.schedulers, dict):
             for k, v in self.schedulers.items(): v.load_state_dict(state[k])
         elif isinstance(self.schedulers, list):
@@ -185,9 +217,12 @@ class Engine(ABC):
         else:
             self.schedulers.load_state_dict(state)
     
-    def fit(self, epochs: int):
+    def fit(self, epochs: int) -> None:
         """
-        The main training loop.
+        The main training loop. Trains the model for the given number of epochs.
+
+        Args:
+            epochs (int): Max epochs to run.
         """
         self.logger.info(f"🚀 Starting training from {self.start_epoch} to {epochs} epochs.")
         
@@ -230,8 +265,14 @@ class Engine(ABC):
         self.logger.info("✅ Training Complete.")
         self.logger.close()
 
-    def save_checkpoint(self, epoch: int, filename: str='latest.pth'):
-        """Saves the training state."""
+    def save_checkpoint(self, epoch: int, filename: str='latest.pth') -> None:
+        """
+        Save a checkpoint of the model, optimizer states and scheduler states.
+
+        Args:
+            epoch (int): Current epoch.
+            filename (str, optional): Filename to save the checkpoint as. Defaults to 'latest.pth'.
+        """
         save_dir = Path(self.logger.log_dir) / "checkpoints"
         save_dir.mkdir(parents=True, exist_ok=True)
         
@@ -239,10 +280,10 @@ class Engine(ABC):
             "epoch": epoch,
             "best_metrics": self.best_metrics,
             "config": self.cfg,
-            # Handle Single vs Dict Models
+            # Handle Single vs dict Models
             "model_state": self.model.state_dict() if not isinstance(self.model, dict) 
                            else {k: v.state_dict() for k, v in self.model.items()},
-            # Handle Single vs Dict Optimizers
+            # Handle Single vs dict Optimizers
             "optimizer_state": self.optimizers.state_dict() if not isinstance(self.optimizers, dict) 
                                else {k: v.state_dict() for k, v in self.optimizers.items()},
             "scheduler_state": self._get_scheduler_state()
@@ -252,16 +293,20 @@ class Engine(ABC):
         
         if filename == 'latest.pth':
             # PERIODICALLY save history (for analysis)
-            # Get interval from config, default to 0 (disabled) 
-            save_interval = self.cfg.get("save_interval", 0) 
+            save_interval = self.cfg.get("save_interval", -1) # default to -1 (disabled) 
         
             if save_interval > 0 and (epoch + 1) % save_interval == 0:
                 history_filename = f"checkpoint-{epoch + 1:04d}.pth"
                 torch.save(state, save_dir / history_filename)
                 self.logger.info(f"Saved historical checkpoint: {history_filename}")
 
-    def resume_from_checkpoint(self, checkpoint_path: str):
-        """Loads the training state."""
+    def resume_from_checkpoint(self, checkpoint_path: str) -> None:
+        """
+        Resume training from a saved checkpoint. Loads the model, optimizer and scheduler state dictionaries.
+
+        Args:
+            checkpoint_path (str): Path to the checkpoint file.
+        """
         self.logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         

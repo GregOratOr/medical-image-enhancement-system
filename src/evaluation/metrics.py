@@ -1,6 +1,6 @@
 import inspect
 import torch
-from typing import Dict, List, Any, Callable, Union
+from typing import Any, Callable
 from torchmetrics.functional import peak_signal_noise_ratio, structural_similarity_index_measure
 
 class Metrics:
@@ -13,10 +13,10 @@ class Metrics:
     - fallback mechanisms if a specific device implementation is missing
     """
     # Registry Structure: { 'metric_name': { 'cpu': cpu_fn, 'gpu': gpu_fn } }
-    _registry: Dict[str, Dict[str, Callable]] = {}
+    _registry: dict[str, dict[str, Callable]] = {}
 
     @staticmethod
-    def _resolve_device_type(device: Union[str, torch.device]) -> str:
+    def _resolve_device_type(device: str | torch.device) -> str:
         """
         Resolves various device representations to either 'cpu' or 'gpu'.
         
@@ -59,9 +59,9 @@ class Metrics:
         cls, 
         prediction: Any, 
         target: Any, 
-        metrics: List[str], 
-        device: Union[str, torch.device] = 'cpu'
-    ) -> Dict[str, float]:
+        metrics: list[str], 
+        device: str | torch.device = 'cpu'
+    ) -> dict[str, float]:
         """
         Computes requested metrics, dispatching to the appropriate implementation based on device.
         
@@ -72,7 +72,7 @@ class Metrics:
             device: The target device (e.g., 'cuda', 'cpu', torch.device('cuda:0')).
             
         Returns:
-            Dict[str, float]: Dictionary of results.
+            dict[str, float]: Dictionary of results.
         """
         results = {}
         target_device = cls._resolve_device_type(device)
