@@ -4,10 +4,11 @@ import torchvision.utils as tvutils
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 import wandb
-
+import inspect
 
 class UnifiedLogger:
-    """A hybrid logger supporting TensorBoard, W&B, and standard File logging.
+    """
+    A hybrid logger supporting TensorBoard, W&B, and standard File logging.
     
     This logger abstracts the experiment tracking backend, allowing the training 
     loop to remain clean and agnostic to the visualization tool used.
@@ -15,41 +16,48 @@ class UnifiedLogger:
 
     def __init__(
         self, 
-        log_dir: str | Path, 
-        experiment_name: str, 
+        log_dir: str | Path,
+        project_name: str | None,
+        experiment_name: str,
         name: str = "LOGGER",
         config: dict | None = None,
-        use_tensorboard: bool = True,
+        use_tensorboard: bool = False,
         use_wandb: bool = False
     ) -> None:
         """Initializes the UnifiedLogger with specified backends.
 
         Args:
             log_dir (str | Path): Base directory where logs will be stored.
-            experiment_name (str): Unique name for the experiment to organize logs.
-            config (Optional[Dict], optional): Configuration dictionary to log to W&B. Defaults to None.
+            project_name (str | None): Name of the project for W&B logging.
+            experiment_name (str):Unique name for the experiment to organize logs.
+            name (str, optional): Name for the logger instance. Defaults to "LOGGER".
+            config (dict | None, optional): Configuration dictionary to log to W&B. Defaults to None.
             use_tensorboard (bool, optional): Whether to enable TensorBoard logging. Defaults to True.
             use_wandb (bool, optional): Whether to enable Weights & Biases logging. Defaults to False.
         """
-        self.log_dir = Path(log_dir) / experiment_name
+        self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
+
         self.use_tb = use_tensorboard
         self.use_wandb = use_wandb
+        
         self.name = name
+        self.project_name = "New_Project" if not project_name else project_name
 
-        # 1. Standard Console/File Logger
+
+        # Standard Console/File Logger
         self._setup_standard_logging()
 
-        # 2. TensorBoard Setup
+        # TensorBoard Setup
         self.tb_writer = None
         if self.use_tb:
             self.tb_writer = SummaryWriter(log_dir=str(self.log_dir / "tb"))
             self.info("TensorBoard backend initialized.")
 
-        # 3. W&B Setup
+        # W&B Setup
         if self.use_wandb:
             wandb.init(
-                project="noise2noise-medical",
+                project=project_name,
                 name=experiment_name,
                 config=config,
                 dir=str(self.log_dir)
@@ -78,7 +86,14 @@ class UnifiedLogger:
         Args:
             msg (str): The message to log.
         """
-        self.console.info(msg)
+        # Gets the source of the function call.
+        caller_frame = inspect.stack()[1][0]
+        caller = caller_frame.f_locals.get('self', None)
+
+        if caller is not None:
+            self.console.info(f"[{caller.__class__.__name__}] " + msg)
+        else:
+            self.console.info(f"[{self.name}] " + msg)
 
     def log_metrics(self, metrics: dict[str, float], step: int, prefix: str = "") -> None:
         """Sends scalar metrics to all active backends.
@@ -103,26 +118,38 @@ class UnifiedLogger:
             wandb_metrics = {f"{prefix}/{k}" if prefix else k: v for k, v in metrics.items()}
             wandb.log(wandb_metrics, step=step)
 
-    def log_images(self, tag: str, images: list[torch.Tensor], step: int) -> None:
-        """Logs a horizontal grid of comparison images.
-
-        Concatenates a list of tensors horizontally and logs them as a single image grid.
-        Useful for visualizing [Input, Output, Target] side-by-side.
+    def log_image(self, tag: str, images: list[torch.Tensor] | torch.Tensor, step: int, path:str | Path | None=None) -> None:
+        """Logs an image or list of images to Disk, TensorBoard, and W&B.
 
         Args:
-            tag (str): Identifier for the image group (e.g., 'val/predictions').
-            images (list[torch.Tensor]): List of image tensors to concatenate. Each should be [B, C, H, W].
-            step (int): The current global training step.
+            tag (str): Identifier (e.g., 'val/prediction').
+            images (list | Tensor): 
+                - If List: Concatenates them horizontally and Normalizes [0-1].
+                - If Tensor: Logs as-is (Assumes pre-processed/grid).
+            step (int): Global step.
+            path (str | Path, optional): Directory to save image to disk. Defaults to None.
         """
-        # Concatenate images horizontally [B, 1, H, W] -> [1, H, W * N]
-        combined = torch.cat(images, dim=3)
-        grid = tvutils.make_grid(combined, nrow=1, normalize=True)
+        # Prepare Image
+        if isinstance(images, list):
+            # Simple horizontal stack + normalize
+            combined = torch.cat(images, dim=3)
+            final_img = tvutils.make_grid(combined, nrow=1, normalize=True)
+        else:
+            # Tensor is already a grid or single image
+            final_img = images
+        
+        # Log to Disk.
+        if path:
+            safe_tag = tag.replace("/", "_").replace(" ", "_")
+            file_path = Path(path) / f"{step:06d}_{safe_tag}.png"
+            tvutils.save_image(final_img, file_path)
 
+        # Log to Backends
         if self.tb_writer:
-            self.tb_writer.add_image(tag, grid, step)
+            self.tb_writer.add_image(tag, final_img, step)
 
         if self.use_wandb:
-            wandb.log({tag: [wandb.Image(grid, caption=f"Step {step}")]}, step=step)
+            wandb.log({tag: [wandb.Image(final_img, caption=f"Step {step}")]}, step=step)
 
     def close(self) -> None:
         """Cleanly shutdown loggers.

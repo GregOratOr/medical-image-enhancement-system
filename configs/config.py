@@ -45,7 +45,8 @@ class ExperimentConfig:
     Metadata for the experiment run.
     """
     project_name: str = "noise2noise-medical"
-    name: str = "experiment_01"
+    base_dir: str = "./experiments"
+    name: str = "exp"
     description: str = ""
     tags: list[str] = field(default_factory=list)
 
@@ -55,24 +56,16 @@ class LogConfig:
     Configuration for the UnifiedLogger.
     Matches arguments in src.utils.logger.UnifiedLogger.
     """
-    # 1. Paths & Identity
-    log_dir: str = "./experiments"         # Base directory for logs
-    experiment_name: str = "baseline_gaussian"
-    project_name: str = "noise2noise-medical" # Used for W&B project organization
-
-    # 2. Backend Toggles
+    # Backend Toggles
     use_tensorboard: bool = True           # Default: Enabled
     use_wandb: bool = False                # Default: Disabled
     
-    # 3. Frequency
+    # Frequency
     log_interval: int = 10                 # Log metrics every N steps
-    image_interval: int = 500              # Log validation images every N steps
 
 @dataclass
 class TrainDataConfig:
-    """
-    Configuration for the CTScans Dataset during training.
-    """
+    """Configuration for the CTScans Dataset during training."""
     # Base Paths
     train_dir: str = "./data/processed/train"
     val_dir: str = "./data/processed/val"
@@ -86,23 +79,10 @@ class TrainDataConfig:
     mode: str = "n2n"             # 'n2n' or 'n2c'
     
     # Clean Image Transformations
-    # Holds params like {'crop_size': 128, 'degrees': 15, 'flip_prob': 0.5}
-    transform_params: dict[str, Any] = field(
-        default_factory=lambda: {
-            'crop_size': 128
-        }
-    )
+    transform_params: dict[str, Any] = field(default_factory=dict)
 
     # Noise Configuration
-    # Default: A single Gaussian noise operation
-    noise_ops: list[dict[str, Any]] = field(
-        default_factory=lambda: [{
-            'type': "gaussian", 
-            'params': {
-                "std_range": (0.01, 0.05)
-            }
-        }]
-    )
+    noise_ops: list[dict[str, Any]] = field(default_factory=list)
 
 @dataclass
 class ModelConfig:

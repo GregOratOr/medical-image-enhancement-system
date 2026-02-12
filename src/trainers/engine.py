@@ -10,7 +10,8 @@ from datetime import datetime
 from src.utils.logger import UnifiedLogger
 
 class FallbackLogger:
-    """A dummy logger that prints to console but skips file/W&B logging.
+    """
+    A dummy logger that prints to console but skips file/W&B logging.
     Used when no UnifiedLogger is provided.
     """
     def __init__(self):
@@ -22,7 +23,7 @@ class FallbackLogger:
         print(f"[Engine] {msg}")
     
     def log_metrics(self, *args, **kwargs): pass # Do nothing
-    def log_images(self, *args, **kwargs): pass  # Do nothing
+    def log_image(self, *args, **kwargs): pass  # Do nothing
     def close(self): pass # Do nothing
 
 class Engine(ABC):
@@ -48,8 +49,7 @@ class Engine(ABC):
         logger: UnifiedLogger | None = None,
         device: str = "cpu"
     ):
-        """
-        Initializes the Trainer class.
+        """Initializes the Trainer class.
 
         Args:
             model (nn.Module | dict[str, nn.Module]): The model(s) to train.
@@ -64,27 +64,28 @@ class Engine(ABC):
         Raises:
             ValueError: If the logger is not initialized correctly.
         """
+
         self.cfg = config or {}
         self.logger = logger if logger is not None else FallbackLogger()
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         
-        # 1. Setup Model(s)
+        # Setup Model(s)
         if isinstance(model, dict):
             self.model = {k: v.to(self.device) for k, v in model.items()}
         else:
             self.model = model.to(self.device)
 
-        # 2. Setup Data & Optimization
+        # Setup Data & Optimization
         self.loaders = loaders
         self.optimizers = optimizers
         self.schedulers = schedulers
         self.criterion = criterion
 
-        # 3. Mixed Precision
+        # Mixed Precision
         self.use_amp: bool = self.cfg.get("use_amp", False)
         self.scaler = GradScaler(device=self.device.type, enabled=self.use_amp)
         
-        # 4. State Tracking
+        # State Tracking
         self.start_epoch = 0
         self.current_epoch = 0
 
@@ -101,23 +102,20 @@ class Engine(ABC):
 
     @abstractmethod
     def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
-        """
-        Execute a single training step.
+        """Execute a single training step.
         Must return a dictionary of scalar metrics (e.g., {'loss': 0.5}).
         """
         pass
 
     @abstractmethod
     def validate_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
-        """
-        Execute a single validation step.
+        """Execute a single validation step.
         Must return a dictionary of scalar metrics (e.g., {'psnr': 30.0}).
         """
         pass
 
     def _run_epoch(self, epoch: int, mode: str = "train") -> dict[str, float]:
-        """
-        Iterates over the DataLoader for one epoch.
+        """Iterates over the DataLoader for one epoch.
 
         Args:
             epoch (int): Current epoch.
@@ -126,6 +124,7 @@ class Engine(ABC):
         Returns:
             dict[str, float]: Returns average performance metrics after the epoch.
         """
+
         is_train = mode == "train"
         loader = self.loaders["train"] if is_train else self.loaders["val"]
         
@@ -173,6 +172,7 @@ class Engine(ABC):
 
     def _step_schedulers(self, val_metrics: dict[str, float]):
         """Steps all schedulers. Handles ReduceLROnPlateau specially."""
+        
         if not self.schedulers: 
             return
         
@@ -193,12 +193,12 @@ class Engine(ABC):
                 sched.step()
 
     def _get_scheduler_state(self) -> dict[str, Any] | list[dict[str, Any]] | None:
-        """
-        Gets the state dict(s) for scheduler(s).
+        """Gets the state dict(s) for scheduler(s).
 
         Returns:
             _type_: Returns a state dictionary or list of state disctionaries.
         """
+
         if not self.schedulers: return None
         if isinstance(self.schedulers, dict):
             return {k: v.state_dict() for k, v in self.schedulers.items()}
@@ -208,6 +208,12 @@ class Engine(ABC):
             return self.schedulers.state_dict()
 
     def _load_scheduler_state(self, state) -> None:
+        """Loads the state dict(s) of scheduler(s).
+
+        Args:
+            state (_type_): State dictionary(s).
+        """
+        
         assert self.schedulers is not None, "No schedulers found."
 
         if isinstance(self.schedulers, dict):
@@ -218,12 +224,12 @@ class Engine(ABC):
             self.schedulers.load_state_dict(state)
     
     def fit(self, epochs: int) -> None:
-        """
-        The main training loop. Trains the model for the given number of epochs.
+        """The main training loop. Trains the model for the given number of epochs.
 
         Args:
             epochs (int): Max epochs to run.
         """
+        
         self.logger.info(f"🚀 Starting training from {self.start_epoch} to {epochs} epochs.")
         
         for epoch in range(self.start_epoch, epochs):
@@ -266,13 +272,13 @@ class Engine(ABC):
         self.logger.close()
 
     def save_checkpoint(self, epoch: int, filename: str='latest.pth') -> None:
-        """
-        Save a checkpoint of the model, optimizer states and scheduler states.
+        """Save a checkpoint of the model, optimizer states and scheduler states.
 
         Args:
             epoch (int): Current epoch.
             filename (str, optional): Filename to save the checkpoint as. Defaults to 'latest.pth'.
         """
+        
         save_dir = Path(self.logger.log_dir) / "checkpoints"
         save_dir.mkdir(parents=True, exist_ok=True)
         
@@ -301,12 +307,12 @@ class Engine(ABC):
                 self.logger.info(f"Saved historical checkpoint: {history_filename}")
 
     def resume_from_checkpoint(self, checkpoint_path: str) -> None:
-        """
-        Resume training from a saved checkpoint. Loads the model, optimizer and scheduler state dictionaries.
+        """Resume training from a saved checkpoint. Loads the model, optimizer and scheduler state dictionaries.
 
         Args:
             checkpoint_path (str): Path to the checkpoint file.
         """
+
         self.logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         
