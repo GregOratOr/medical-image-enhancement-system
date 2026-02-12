@@ -2,6 +2,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 from datetime import datetime
+import re
 
 @dataclass
 class DatasetConfig:
@@ -143,27 +144,43 @@ class Config:
     seed: int = 42
     device: str = "cpu"
 
-    @property
-    def run_name(self) -> str:
-        """
-        Generates a unique run ID: {name}-{tag1}-{tag2}-{timestamp}
-        Example: exp01-baseline-gaussian-20231027_143000
-        """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir: Path = field(init=False)
+
+    def __post_init__(self):
+        """Automatically resolves the directory structure on initialization."""
+        self._setup_directories()
+
+    def _setup_directories(self):
+        """Automatically resolves the directory structure on initialization."""
+        base_path = Path(self.experiment.base_dir)
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        # Auto-Increment Logic: Scan for existing folders with prefix as the experiment's name.
+        next_id = 0
+        existing_exps = [p.name for p in base_path.iterdir() if p.is_dir() and p.name.startswith(f"{self.experiment.name}-")]
         
-        # Filter out empty tags and join them
-        valid_tags = [t for t in self.experiment.tags if t]
-        tags_str = "-".join(valid_tags)
+        if existing_exps:
+            ids = []
+            for name in existing_exps:
+                # Regex: match "name-ID" to extract the ID
+                match = re.search(rf"{re.escape(self.experiment.name)}-(\d+)", name)
+                if match:
+                    ids.append(int(match.group(1)))
+            if ids:
+                next_id = max(ids) + 1
+
+        # Format Run Name: exp-{N:02d}-{name}-{tags}_{date}
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        tags_str = "-".join(self.experiment.tags) if self.experiment.tags else ""
         
-        # Build components list
-        components = [self.experiment.name]
-        if tags_str:
-            components.append(tags_str)
+        components = [self.experiment.name, f"{next_id:02d}"]
+        if tags_str: components.append(tags_str)
         components.append(timestamp)
         
-        return "-".join(components)
-    
-    @property
-    def full_save_path(self) -> Path:
-        """Helper to get the absolute path for this specific run."""
-        return Path(self.log.log_dir) / self.run_name
+        run_name = "-".join(c for c in components if c)
+        
+        # Define Paths
+        self.run_dir = base_path / run_name
+
+        # 4. Create directories
+        self.run_dir.mkdir(exist_ok=True)
