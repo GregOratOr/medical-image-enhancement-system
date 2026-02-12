@@ -6,6 +6,8 @@ from typing import Any
 
 from src.trainers.engine import Engine
 from src.evaluation.metrics import Metrics
+from src.utils.visualization import Visualizer
+
 
 class Noise2NoiseTrainer(Engine):
     """
@@ -26,6 +28,7 @@ class Noise2NoiseTrainer(Engine):
         self.model: nn.Module = model
         self.criterion: dict[str, nn.Module] = criterion
         self.optimizers: torch.optim.Optimizer = optimizers
+        self.viz: Visualizer = Visualizer()
 
     def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         # 1. Unpack Data
@@ -96,7 +99,7 @@ class Noise2NoiseTrainer(Engine):
         
         # 5. Visualization (Only for the first batch of the epoch)
         if batch_idx == 0 and self.logger:
-            self._log_comparison_grid(source, denoised_output, clean_gt, step=self.current_epoch)
+            self._log_comparison_grid(source=source, output=denoised_output, target=target, clean_gt=clean_gt, step=self.current_epoch)
 
         # 5. Return everything
         # The Engine will average these over the epoch automatically.
@@ -105,25 +108,36 @@ class Noise2NoiseTrainer(Engine):
             **metric_results  # Unpacks {'psnr': 30.5, 'ssim': 0.9} into this dict
         }
     
-    def _log_comparison_grid(self, source, output, target, step):
+    def _log_comparison_grid(self, source: torch.Tensor, output: torch.Tensor, target: torch.Tensor, clean_gt: torch.Tensor, step):
+        """Creates a diagnostic grid and logs it to Disk, TensorBoard, and W&B.
+
+        Args:
+            source (torch.Tensor): The input(noisy) image.
+            output (torch.Tensor): The denoised output.
+            target (torch.Tensor): The target image (clean/noisy).
+            clean_gt (torch.Tensor): The clean ground truth image.
+            step (int): The current epoch.
         """
-        Creates a side-by-side comparison grid: [Noisy Input | Denoised Output | Clean GT]
-        """
-        # Take just the first 4 images from the batch to save storage
-        n_images = min(source.size(0), 4)
+
+        # Create the rich 3-row grid using Visualizer
+        # (Spatial Domain | Frequency Domain | Error Maps)
+        grid = self.viz.create_grid(
+            clean_gt=clean_gt,
+            noisy_input=source,
+            denoised_output=output,
+            target=target,
+            max_images=4  # Number of samples to show
+        )
         
-        # 1. Denormalize if necessary (assuming data is 0-1)
-        # If your loader normalizes to -1,1, you'd un-normalize here.
-        # For now, we assume [0,1].
+        # Define the save path
+        save_path = self.logger.log_dir / "training"
         
-        # 2. Stack images horizontally: [B, C, H, W] -> [B, C, H, W*3]
-        # We usually want:
-        # Row 1: Source, Output, Target
-        # Row 2: Source, Output, Target
-        
-        # Helper to concatenate along width (dim=3)
-        comparison = torch.cat([source[:n_images], output[:n_images], target[:n_images]], dim=3)
-        
-        # 3. Send to Logger
-        # This will create a grid in TensorBoard/W&B
-        self.logger.log_images("val_comparison", list(comparison), step=step)
+        # Log and Save
+        # Passing the path enables saving to disk.
+        if self.logger:
+            self.logger.log_image(
+                tag="val/comparison", 
+                images=grid, 
+                step=step, 
+                path=save_path
+            )
