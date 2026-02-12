@@ -19,6 +19,7 @@ class Visualizer:
 
     def _normalize(self, tensor: torch.Tensor) -> torch.Tensor:
         """Min-Max normalizes a tensor to [0, 1] for display."""
+        
         min_val = tensor.min()
         max_val = tensor.max()
         if max_val - min_val > 1e-6:
@@ -27,6 +28,7 @@ class Visualizer:
 
     def _compute_spectral(self, img: torch.Tensor) -> torch.Tensor:
         """Computes the log-magnitude spectrum (Decibel scale) of an image batch."""
+        
         # 1. FFT2 (Real -> Complex)
         fft_img = torch.fft.fft2(img)
         
@@ -57,8 +59,7 @@ class Visualizer:
         target: torch.Tensor,
         max_images: int = 4
     ) -> torch.Tensor:
-        """
-        Constructs the 3-row diagnostic grid.
+        """Constructs the 3-row diagnostic grid.
 
         Args:
             clean_gt: The ground truth clean image (Original).
@@ -67,6 +68,7 @@ class Visualizer:
             target: The regression target (Clean for N2C, Noisy2 for N2N).
             max_images: Max number of samples to visualize from the batch.
         """
+
         # 1. Slice Batch
         N = min(clean_gt.shape[0], max_images)
         orig = clean_gt[:N].detach().cpu()

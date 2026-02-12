@@ -17,8 +17,7 @@ class Metrics:
 
     @staticmethod
     def _resolve_device_type(device: str | torch.device) -> str:
-        """
-        Resolves various device representations to either 'cpu' or 'gpu'.
+        """Resolves various device representations to either 'cpu' or 'gpu'.
         
         Examples:
             'cuda' -> 'gpu'
@@ -26,6 +25,7 @@ class Metrics:
             torch.device('cuda') -> 'gpu'
             'cpu' -> 'cpu'
         """
+        
         if isinstance(device, torch.device):
             device = device.type
         
@@ -37,13 +37,13 @@ class Metrics:
 
     @classmethod
     def register(cls, name: str, device: str = 'cpu'):
-        """
-        Decorator to register a metric function for a specific device.
+        """Decorator to register a metric function for a specific device.
         
         Args:
             name (str): The name of the metric (e.g., 'psnr').
             device (str): 'cpu', 'gpu', or 'cuda' (will be resolved to 'gpu').
         """
+        
         norm_device = cls._resolve_device_type(device)
         
         def decorator(func: Callable):
@@ -62,8 +62,7 @@ class Metrics:
         metrics: list[str], 
         device: str | torch.device = 'cpu'
     ) -> dict[str, float]:
-        """
-        Computes requested metrics, dispatching to the appropriate implementation based on device.
+        """Computes requested metrics, dispatching to the appropriate implementation based on device.
         
         Args:
             pred: Predictions
@@ -74,6 +73,7 @@ class Metrics:
         Returns:
             dict[str, float]: Dictionary of results.
         """
+        
         results = {}
         target_device = cls._resolve_device_type(device)
         
@@ -114,8 +114,7 @@ class Metrics:
     
     @classmethod
     def help(cls, metric_name: str, device: str = 'cpu'):
-        """
-        Retrieves and prints the signature and docstring for a specific metric implementation.
+        """Retrieves and prints the signature and docstring for a specific metric implementation.
 
         This is useful for introspecting registered metrics to understand their 
         expected arguments, return types, and behavior, especially since the 
@@ -130,6 +129,7 @@ class Metrics:
         Returns:
             None: This method prints directly to standard output.
         """
+        
         device_type = cls._resolve_device_type(device)
         
         # 1. Get the function

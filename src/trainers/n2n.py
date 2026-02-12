@@ -72,24 +72,21 @@ class Noise2NoiseTrainer(Engine):
     
     def validate_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
         # 1. Unpack Data
-        # CRITICAL DIFFERENCE: We NEED 'clean_gt' here for true validation!
+        # CRITICAL: NEED 'clean_gt' here for true validation!
         source, target, clean_gt = batch
         source, target, clean_gt = source.to(self.device), target.to(self.device), clean_gt.to(self.device)
 
         # 2. Forward Pass
-        # (Engine automatically wraps this in 'with torch.no_grad():')
         denoised_output = self.model(source)
         
         # 3. Calculate Proxy Loss (Same as training)
-        # We check this to ensure the model is converging mathematically
         loss_mse = self.criterion['mse'](denoised_output, target)
         loss_l1 = self.criterion['l1'](denoised_output, target)
         alpha = self.cfg.get("loss_alpha", 0.5)
         val_loss = (alpha * loss_mse) + ((1 - alpha) * loss_l1)
 
-        # 4. Calculate Metrics (The New Way)
-        # Compute against 'clean_gt' because we want to know 
-        # "How close we are to the REAL image, not the noisy target."
+        # 4. Calculate Metrics
+        # Computes —"How close we are to the REAL image, not the noisy target."
         metric_results = Metrics.compute(
             prediction=denoised_output, 
             target=clean_gt, 
@@ -101,7 +98,7 @@ class Noise2NoiseTrainer(Engine):
         if batch_idx == 0 and self.logger:
             self._log_comparison_grid(source=source, output=denoised_output, target=target, clean_gt=clean_gt, step=self.current_epoch)
 
-        # 5. Return everything
+        # 6. Return everything
         # The Engine will average these over the epoch automatically.
         return {
             "val_loss": val_loss.item(),
