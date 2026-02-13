@@ -52,7 +52,7 @@ class UnifiedLogger:
         self.tb_writer = None
         if self.use_tb:
             self.tb_writer = SummaryWriter(log_dir=str(self.log_dir / "tb"))
-            self.info("TensorBoard backend initialized.")
+            self.info("✅ TensorBoard backend initialized.")
 
         # W&B Setup
         if self.use_wandb:
@@ -62,7 +62,9 @@ class UnifiedLogger:
                 config=config,
                 dir=str(self.log_dir)
             )
-            self.info("Weights & Biases backend initialized.")
+            self.info("✅ Weights & Biases backend initialized.")
+
+        self.info(f"📝 Logger Initialized.")
 
     def _setup_standard_logging(self) -> None:
         """Configures the standard Python logging module to write to file and console.
@@ -73,27 +75,84 @@ class UnifiedLogger:
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
+            encoding="utf-8",
             handlers=[
-                logging.FileHandler(self.log_dir / "session.log"),
+                logging.FileHandler(self.log_dir / "session.log", encoding="utf-8"),
                 logging.StreamHandler()
             ]
         )
         self.console = logging.getLogger(self.name)
 
+    def _get_caller_name(self) -> str:
+        """
+        Internal helper to find the name of the class or function calling the logger.
+        It looks back 2 stack frames: 
+        Frame 0: _get_caller_name (this function)
+        Frame 1: info/debug/error (the wrapper function)
+        Frame 2: The actual caller (e.g. Trainer.train_step)
+        """
+        try:
+            # We want the caller of the wrapper function, so we look at index 2
+            stack = inspect.stack()
+            if len(stack) < 3:
+                return self.name
+            
+            frame = stack[2][0]
+            caller_self = frame.f_locals.get('self', None)
+            
+            if caller_self:
+                return caller_self.__class__.__name__
+            else:
+                # If no 'self', it might be a standalone function or script
+                return "Global"
+        except Exception:
+            # Fallback for safety
+            return self.name
+        
+    def debug(self, msg: str) -> None:
+        """Logs an debug message to the console and log file.
+
+        Args:
+            msg (str): The message to log.
+        """
+        caller = self._get_caller_name()
+        self.console.debug(f"[{caller}] {msg}")
+    
     def info(self, msg: str) -> None:
         """Logs an informational message to the console and log file.
 
         Args:
             msg (str): The message to log.
         """
-        # Gets the source of the function call.
-        caller_frame = inspect.stack()[1][0]
-        caller = caller_frame.f_locals.get('self', None)
+        caller = self._get_caller_name()
+        self.console.info(f"[{caller}] {msg}")
 
-        if caller is not None:
-            self.console.info(f"[{caller.__class__.__name__}] " + msg)
-        else:
-            self.console.info(f"[{self.name}] " + msg)
+    def warning(self, msg: str) -> None:
+        """Logs a warning message to the console and log file.
+
+        Args:
+            msg (str): The message to log.
+        """
+        caller = self._get_caller_name()
+        self.console.warning(f"[{caller}] {msg}")
+
+    def error(self, msg: str) -> None:
+        """Logs an error message to the console and log file.
+
+        Args:
+            msg (str): The message to log.
+        """
+        caller = self._get_caller_name()
+        self.console.error(f"[{caller}] {msg}")
+
+    def critical(self, msg: str) -> None:
+        """Logs a critical error message to the console and log file.
+
+        Args:
+            msg (str): The message to log.
+        """
+        caller = self._get_caller_name()
+        self.console.critical(f"[{caller}] {msg}")
 
     def log_metrics(self, metrics: dict[str, float], step: int, prefix: str = "") -> None:
         """Sends scalar metrics to all active backends.
@@ -160,4 +219,4 @@ class UnifiedLogger:
             self.tb_writer.close()
         if self.use_wandb:
             wandb.finish()
-        self.info("Logger sessions closed.")
+        self.info("📝 Logger sessions closed.")
