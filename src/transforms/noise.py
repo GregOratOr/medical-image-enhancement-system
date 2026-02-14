@@ -13,7 +13,7 @@ class AddGaussianNoise(nn.Module):
     from a Normal distribution.
     """
 
-    def __init__(self, mean: float = 0.0, std_range: tuple = (0.01, 0.05), name: str = "Gaussian"):
+    def __init__(self, mean: float = 0.0, std_range: list[float] | tuple[float, float] = (0.01, 0.05), name: str = "Gaussian"):
         """Initializes the Gaussian noise module.
 
         Args:
@@ -25,7 +25,7 @@ class AddGaussianNoise(nn.Module):
         super().__init__()
         self.name = name
         self.mean = mean
-        self.std_range = std_range
+        self.std_range = tuple(std_range)
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
         """Applies Gaussian noise to the input image.
@@ -53,7 +53,7 @@ class AddPoissonNoise(nn.Module):
     Lower lambda values correspond to higher noise (fewer photons).
     """
 
-    def __init__(self, lam_range: tuple = (50.0, 100.0), name: str = "Poisson"):
+    def __init__(self, lam_range: list[float] | tuple[float, float] = (50.0, 100.0), name: str = "Poisson"):
         """Initializes the Poisson noise module.
 
         Args:
@@ -63,7 +63,7 @@ class AddPoissonNoise(nn.Module):
         """
         super().__init__()
         self.name = name
-        self.lam_range = lam_range
+        self.lam_range = tuple(lam_range)
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
         """Applies Poisson noise to the input image.
@@ -101,7 +101,7 @@ class SpectralPoissonNoise(nn.Module):
     simulating acquisition noise that depends on signal strength.
     """
 
-    def __init__(self, strength_range: tuple = (0.1, 0.2), mask_ratio: float = 0.05, name: str = "Spectral Poisson"):
+    def __init__(self, strength_range: list[float] | tuple[float, float] = (0.1, 0.2), mask_ratio: float = 0.05, name: str = "Spectral Poisson"):
         """Initializes the Spectral Poisson noise module.
 
         Args:
@@ -110,7 +110,7 @@ class SpectralPoissonNoise(nn.Module):
             name (str, optional): Label for logging purposes. Defaults to "Spectral Poisson".
         """
         super().__init__()
-        self.strength_range = strength_range
+        self.strength_range = tuple(strength_range)
         self.mask_ratio = mask_ratio
         self.name = name
 
@@ -159,7 +159,7 @@ class SpectralGaussianBlur(nn.Module):
     The mask is a Gaussian centered at DC (low frequencies).
     """
 
-    def __init__(self, sigma_range: tuple = (0.1, 0.5), name: str = "Gaussian Blur"):
+    def __init__(self, sigma_range: list[float] | tuple[float, float] = (0.1, 0.5), name: str = "Gaussian Blur"):
         """Initializes the Spectral Gaussian Blur module.
 
         Args:
@@ -171,7 +171,7 @@ class SpectralGaussianBlur(nn.Module):
         """
         super().__init__()
         self.name = name
-        self.sigma_range = sigma_range
+        self.sigma_range = tuple(sigma_range)
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
         """Applies a Gaussian Low-Pass filter in the frequency domain.
@@ -219,7 +219,7 @@ class SpectralBernoulliNoise(nn.Module):
     Simulates missing k-space data, sparse sampling, or packet loss.
     """
 
-    def __init__(self, prob_drop_range: tuple = (0.1, 0.3), name: str = "Bernoulli"):
+    def __init__(self, prob_drop_range: list[float] | tuple[float, float] = (0.1, 0.3), name: str = "Bernoulli"):
         """Initializes the Spectral Bernoulli noise module.
 
         Args:
@@ -228,7 +228,7 @@ class SpectralBernoulliNoise(nn.Module):
         """
         super().__init__()
         self.name = name
-        self.prob_drop_range = prob_drop_range
+        self.prob_drop_range = tuple(prob_drop_range)
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
         """Applies a random dropout mask to the frequency domain.
@@ -324,7 +324,7 @@ class AddSpectralGaussianNoise(nn.Module):
     while preserving structural edges (phase).
     """
 
-    def __init__(self, std_range: tuple = (0.1, 0.2), name: str = "Spectral Gaussian"):
+    def __init__(self, std_range: list[float] | tuple[float, float] = (0.1, 0.2), name: str = "Spectral Gaussian"):
         """Initializes the Spectral Gaussian noise module.
 
         Args:
@@ -332,7 +332,7 @@ class AddSpectralGaussianNoise(nn.Module):
             name (str, optional): Label for logging. Defaults to "Spectral Gaussian".
         """
         super().__init__()
-        self.std_range = std_range
+        self.std_range = tuple(std_range)
         self.name = name
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
@@ -366,3 +366,13 @@ class AddSpectralGaussianNoise(nn.Module):
 
     def __repr__(self):
         return f"{self.name}(std={self.std_range})"
+    
+NOISE_REGISTRY = {
+    "gaussian": AddGaussianNoise,
+    "poisson": AddPoissonNoise,
+    "spec_poisson": SpectralPoissonNoise,
+    "spec_gaussian_blur": SpectralGaussianBlur,
+    "spec_bernoulli": SpectralBernoulliNoise,
+    "spec_drop": RandomSpectralDrop,
+    "spec_gaussian_noise": AddSpectralGaussianNoise
+}
