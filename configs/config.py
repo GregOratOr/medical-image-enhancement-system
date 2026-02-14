@@ -1,7 +1,7 @@
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from typing import Any
 import re
 
 @dataclass
@@ -38,121 +38,102 @@ class DatasetConfig:
     VAR_THRESHOLD: float = 0.0
 
 default_dataset_cfg = DatasetConfig(name="default")
- 
+
 
 @dataclass
-class ExperimentConfig:
-    """
-    Metadata for the experiment run.
-    """
-    project_name: str = "noise2noise-medical"
-    base_dir: str = "./experiments"
-    name: str = "exp"
+class Experiment:
+    """Metadata for the experiment run."""
+    name: str = "New_Experiment"
     description: str = ""
     tags: list[str] = field(default_factory=list)
 
 @dataclass
-class LogConfig:
-    """
-    Configuration for the UnifiedLogger.
-    Matches arguments in src.utils.logger.UnifiedLogger.
-    """
-    # Backend Toggles
-    use_tensorboard: bool = True           # Default: Enabled
-    use_wandb: bool = False                # Default: Disabled
-    
-    # Frequency
-    log_interval: int = 10                 # Log metrics every N steps
+class Logs:
+    """Configuration for the UnifiedLogger. [src.utils.logger.UnifiedLoggger]"""
+    name: str = "Logger"
+    use_tensorboard: bool = False
+    use_wandb: bool = False
+    log_interval: int = 10
 
 @dataclass
-class TrainDataConfig:
-    """Configuration for the CTScans Dataset during training."""
-    # Base Paths
-    train_dir: str = "./data/processed/train"
-    val_dir: str = "./data/processed/val"
+class Data:
+    """Data configuration parameters for training."""
+    train_dir: Path = Path("./data/processed/train/images")
+    val_dir: Path = Path("./data/processed/val/images")
 
-    # Subfolder Selection ('patches' or 'images')
-    data_source: str = "patches"
-
-    # Loader Settings
     batch_size: int = 4
     num_workers: int = 4
-    mode: str = "n2n"             # 'n2n' or 'n2c'
-    
-    # Clean Image Transformations
-    transform_params: dict[str, Any] = field(default_factory=dict)
 
-    # Noise Configuration
-    noise_ops: list[dict[str, Any]] = field(default_factory=list)
+    # Contains mode, transform_params, noise_params (specific to model)
+    preprocess_params: dict = field(default_factory=dict)
 
 @dataclass
-class ModelConfig:
-    """Configuration for the Noise2Noise U-Net."""
-    architecture: str = "unet"     # 'unet' (dynamic) or 'original' (fixed)
-    in_channels: int = 1          
-    out_channels: int = 1         
-    base_channels: int = 48       
-    depth: int = 4                
-    activation: str = "leaky_relu"
+class Model:
+    """Configuration for the model architecture."""
+    name: str = ""
+    model_params: dict = field(default_factory=dict)
 
 @dataclass
-class TrainConfig:
-    """Hyperparameters for the Training Loop."""
-    # Optimization
-    epochs: int = 100
-    lr: float = 3e-4
-    weight_decay: float = 0.0
-    accum_steps: int = 1          
-    
-    # Loss Logic
-    loss_alpha: float = 0.5       
-    
-    # Performance
-    use_amp: bool = False         
-    
-    # Checkpointing
-    save_interval: int = 0           
-    
-    # Metrics monitored during validation step.
-    monitor_metrics: dict[str, str] = field(default_factory=lambda: {
-        "val_loss": "min",
-        # "psnr": "max",   # Peak Signal-to-Noise Ratio (Higher is better)
-        # "ssim": "max"    # Structural Similarity (Higher is better)
-    })
+class Optimizer:
+    """Wrapper for different optimizers."""
+    label: str = "main"
+    name: str = "Adam"
+    params: dict[str, Any] = field(default_factory=dict)
 
-    # Optimizers. Default: Adam
-    optimizers: dict[str, dict[str, Any]] = field(default_factory=lambda: {'default': {
-        "type": "adam", 
-        "params": {}
-    }})
-    
-    # LR Schedulers. Default: ReduceLROnPlateau
-    schedulers: dict[str, dict[str, Any]] = field(default_factory=lambda: { 'default': {
-        "type": "plateau", 
-        "params": {"patience": 10, "factor": 0.5, "mode": "min"}
-    }})
+@dataclass
+class Scheduler:
+    """Wrapper for different LR schedulers."""
+    label: str = "main"
+    name: str = "ReduceLROnPlate"
+    params: dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class Train:
+    """Hyperparameters for the training loop."""
+    max_epochs: int = 100
+    use_amp: bool = False
+    save_interval: int = -1     # No save.
+    resume_checkpoint: str = "" # Example: "./experiment/New_Experiment/checkpoints/latest.pth"
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    monitor_metrics: dict[str, str] = field(default_factory=lambda : {"val_loss": "min"})
+    optimizers: list[Optimizer] = field(default_factory=list[Optimizer])
+    schedulers: list[Scheduler] = field(default_factory=list[Scheduler])
 
 @dataclass
 class Config:
-    """The Master Configuration Object."""
-    experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
-    log: LogConfig = field(default_factory=LogConfig)
-    data: TrainDataConfig = field(default_factory=TrainDataConfig)
-    model: ModelConfig = field(default_factory=ModelConfig)
-    train: TrainConfig = field(default_factory=TrainConfig)
-    
+    """Master configuration object for the project."""
+    project_name: str = "New_Project"
+    root_dir: Path = Path("./experiments")
     seed: int = 42
-    device: str = "cpu"
-
+    use_gpu: bool = False
     run_dir: Path = field(init=False)
 
+    experiment: Experiment = field(default_factory=Experiment)
+    logs: Logs = field(default_factory=Logs)
+    data: Data = field(default_factory=Data)
+    models: list[Model] = field(default_factory=list)
+    train: Train = field(default_factory=Train)
+
     def __post_init__(self):
-        """Automatically resolves the directory structure on initialization."""
         self._setup_directories()
 
     def _setup_directories(self):
-        """Automatically resolves the directory structure on initialization."""
-        base_path = Path(self.experiment.base_dir)
+        """Automatically resolves the base directory structure for the run."""
+
+        if self.train.resume_checkpoint:
+            ckpt_path = Path(self.train.resume_checkpoint)
+            
+            # Navigate up two levels: latest.pth -> checkpoints -> exp-00-name
+            self.run_dir = ckpt_path.parent.parent 
+            
+            if not self.run_dir.exists():
+                print(f"⚠️ Warning: Resumed run_dir {self.run_dir} does not exist. Creating it.")
+                self.run_dir.mkdir(parents=True, exist_ok=True)
+                
+            # Exit early so we don't trigger the auto-increment logic!
+            return
+
+        base_path = Path(self.root_dir)
         base_path.mkdir(parents=True, exist_ok=True)
 
         # Auto-Increment Logic: Scan for existing folders with prefix as the experiment's name.
@@ -182,5 +163,7 @@ class Config:
         # Define Paths
         self.run_dir = base_path / run_name
 
-        # 4. Create directories
+        # Create directories
         self.run_dir.mkdir(exist_ok=True)
+
+    

@@ -1,95 +1,120 @@
 # configs/train.yaml
+project_name: "noise2noise-medical"
+root_dir: "./experiments"
+seed: 42
+use_gpu: True
 
-experiment:
-  project_name: "noise2noise-medical"
-  name: "experiment_01"
+experiment:  
+  name: "exp"
   description: "Baseline Gaussian noise training with U-Net"
-  tags: ["baseline", "gaussian", "unet"]
+  tags: ["testing", "pipeline"]
+  # tags: ["baseline", "gaussian", "unet"]
+
+logs:
+  name: "TrainLogger"
+  use_tensorboard: True           
+  use_wandb: False
+  log_interval: 5             
 
 data:
-  train_dir: "data/processed/train"
-  val_dir: "data/processed/val"
-  data_source: "patches"  # "images" or "patches"
-  
-  batch_size: 4
-  num_workers: 4
-  
-  transform_params:
-    crop_size: 128
-  
-  # NOISE CONFIGURATION
-  # We can use a list here to support single OR multiple (compound) noises
-  noise_ops:
-    - type: "gaussian"
-      params:
-        name: "Gaussian"
-        mean: 0.0
-        std_range: [0.01, 0.05]  # Randomly sample std from this range for each image
-        
-    - type: "poisson"
-      params:
-        name: "Poisson"
-        lam_range: [50.0, 100.0]
-    
-    - type: "spec_poisson"
-      params:
-        name: "Spectral Poisson"
-        strength_range: [0.1, 0.2]
-        mask_ratio: 0.05
-    
-    - type: "spec_gaussian_blur"
-      params:
-        name: "Gaussian Blur"
-        sigma_range: [0.1, 0.5]
-    
-    - type: "spec_bernoulli"
-      params:
-        name: "Bernoulli"
-        prob_drop_range: [0.1, 0.3]
-    
-    - type: "spec_drop"
-      params:
-        name: "Spectral Drop"
-        drop_ratio: 0.1
-    
-    - type: "spec_gaussian_noise"
-      params:
-        name: "Spectral Gaussian"
-        std_range: [0.1, 0.2]
+  train_dir: "data/processed/train/patches"
+  val_dir: "data/processed/val/patches"
+  batch_size: 24
+  num_workers: 8
+  preprocess_params:
+    mode: 'n2n'  # 'n2n' or 'n2c'
+    transform_params:
+      crop_size: 256
+    noise_params:
+      - type: "gaussian"
+        params:
+          name: "Gaussian"
+          mean: 0.0
+          std_range: [0.01, 0.08]  # Randomly sample std from this range for each image
+      # - type: "poisson"
+      #   params:
+      #     name: "Poisson"
+      #     lam_range: [10.0, 50.0]
+      
+      # - type: "spec_poisson"
+      #   params:
+      #     name: "Spectral Poisson"
+      #     strength_range: [0.1, 0.2]
+      #     mask_ratio: 0.05
+      
+      # - type: "spec_gaussian_blur"
+      #   params:
+      #     name: "Gaussian Blur"
+      #     sigma_range: [0.1, 0.5]
+      
+      # - type: "spec_bernoulli"
+      #   params:
+      #     name: "Bernoulli"
+      #     prob_drop_range: [0.1, 0.3]
+      
+      # - type: "spec_drop"
+      #   params:
+      #     name: "Spectral Drop"
+      #     drop_ratio: 0.1
+      
+      # - type: "spec_gaussian_noise"
+      #   params:
+      #     name: "Spectral Gaussian"
+      #     std_range: [0.1, 0.2]
 
+models:
+  - name: "n2n-new"
+    model_params: 
+      in_channels: 1
+      out_channels: 1
+      depth: 4
+      base_channels: 48
+      activation: "leaky_relu"
 
-model:
-  architecture: "unet-n2n"
-  in_channels: 1
-  out_channels: 1
-  depth: 4
-  base_channels: 48
-  activation: "leaky_relu"
-
-training:
-  epochs: 100
-  lr: 0.0003
-  weight_decay: 0.0
-  accum_steps: 1
-  loss_alpha: 0.5
+train:
+  max_epochs: 300
+  use_amp: True
+  save_interval: 20
+  resume_checkpoint: "" # "./experiments/exp-00-testing-pipeline-2026-02-13/checkpoints/latest.pth"
+  
+  kwargs:
+    loss_alpha: 0.5
+    force_freq_op: True
+    # accum_steps: 1
+  
   monitor_metrics:
-    "val_loss": "min"
-  save_interval: 10
+    val_loss: "min"
   
-  # OPTIMIZER & SCHEDULER
   optimizers:
-    default: # Name of the optimizer assigned to a model. E.g. for a GAN (generator/discriminator)
-      type: "adam"  # adam, sgd, adamw
+    - label: "main" # Name of the optimizer assigned to a model. E.g. for a GAN (generator/discriminator)
+      name: "Adam"  # adam, sgd, adamw
       params:
+        model_label: "n2n-new"  # Name of the model this optimizer is associated with.
+        lr: 0.0001
         betas: [0.9, 0.999]
-        eps: 1e-08
+        eps: !!float 1e-08
         weight_decay: 0.0
-        amsgrad: false
+        # amsgrad: false
 
-  scheduler: 
-    default: # Name of the scheduler assigned to a model.
-      type: "plateau"
+  schedulers: 
+    # - label: "sch1"
+    #   name: "n_sch1"
+    #   params:
+    
+    # - label: "sch3"
+    #   name: "n_sch2"
+    #   params:
+
+    - label: "main" # Name of the scheduler assigned to a model.
+      name: "ReduceLROnPlateau"  # StepLR, MultiStepLR, ExponentialLR, CosineAnnealingLR, ReduceLROnPlateau
       params:
+        optimizer_label: "main"  # Name of the optimizer this scheduler is associated with.
+        mode: "min"
         patience: 10
         factor: 0.5
-        mode: "min"
+        # For Chained or Sequential Schedulers.
+        # schedulers:
+        #   - label: 'sch1'
+        #   - label: 'sch2'
+        
+# D:/medical-image-enhancement-system/.venv/Scripts/python.exe d:/medical-image-enhancement-system/scripts/train.py --config_path ./configs/train.yaml

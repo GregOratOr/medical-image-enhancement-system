@@ -58,9 +58,12 @@ class Engine(ABC):
         optimizers: torch.optim.Optimizer | dict[str, torch.optim.Optimizer],
         criterion: nn.Module | dict[str, nn.Module],
         schedulers: torch.optim.lr_scheduler.LRScheduler | dict[str, torch.optim.lr_scheduler.LRScheduler] | None = None,
-        config: dict | None = None,
         logger: UnifiedLogger | None = None,
-        device: str = "cpu"
+        device: str | torch.device = "cpu",
+        use_amp: bool = False,
+        monitor_metrics: dict = {'val_loss': 'min'},
+        save_interval: int = 10,
+        **kwargs
     ):
         """Initializes the Trainer class.
 
@@ -78,7 +81,6 @@ class Engine(ABC):
             ValueError: If the logger is not initialized correctly.
         """
 
-        self.cfg = config or {}
         self.logger = logger if logger is not None else FallbackLogger()
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         
@@ -93,25 +95,32 @@ class Engine(ABC):
         self.optimizers = optimizers
         self.schedulers = schedulers
         self.criterion = criterion
+        if isinstance(criterion, dict):
+            self.criterion = {k: v.to(self.device) for k, v in criterion.items()}
+        else:
+            self.criterion = criterion.to(self.device)
 
         # Mixed Precision
-        self.use_amp: bool = self.cfg.get("use_amp", False)
+        self.use_amp: bool = use_amp
         self.scaler = GradScaler(device=self.device.type, enabled=self.use_amp)
         
         # State Tracking
         self.start_epoch = 0
         self.current_epoch = 0
+        self.save_interval = save_interval # -1 to disable saving. 
+        self.kwargs = kwargs
 
-        self.monitor_metrics = self.cfg.get("monitor_metrics", {'val_loss': 'min'})
+        self.monitor_metrics = monitor_metrics
         self.best_metrics = {}
         for metric, mode in self.monitor_metrics.items():
             self.best_metrics[metric] = float('-inf') if mode == 'max' else float('inf')
         
         # Log setup
         if self.logger:
-            self.logger.info(f"Engine initialized on {self.device}. AMP: {self.use_amp}")
+            self.logger.info(f"⚙️ Engine initialized on {self.device}.⚡ AMP: {self.use_amp}")
         else:
-            raise ValueError("Logger not initialized.")
+            raise ValueError("❌ Logger not initialized.")
+        
 
     @abstractmethod
     def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
@@ -201,7 +210,13 @@ class Engine(ABC):
 
         for sched in schedulers_list:
             if isinstance(sched, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                sched.step(val_metrics.get("val_loss", 0.0)) 
+                primary_metric = list(self.monitor_metrics.keys())[0]
+                if primary_metric not in val_metrics:
+                    self.logger.warning(
+                        f"⚠️ Scheduler expected metric '{primary_metric}' but it wasn't returned "
+                        f"by validate_step! Available metrics: {list(val_metrics.keys())}"
+                    )
+                sched.step(val_metrics[primary_metric]) 
             else:
                 sched.step()
 
@@ -298,7 +313,6 @@ class Engine(ABC):
         state = {
             "epoch": epoch,
             "best_metrics": self.best_metrics,
-            "config": self.cfg,
             # Handle Single vs dict Models
             "model_state": self.model.state_dict() if not isinstance(self.model, dict) 
                            else {k: v.state_dict() for k, v in self.model.items()},
@@ -311,13 +325,11 @@ class Engine(ABC):
         torch.save(state, save_dir / filename)
         
         if filename == 'latest.pth':
-            # PERIODICALLY save history (for analysis)
-            save_interval = self.cfg.get("save_interval", -1) # default to -1 (disabled) 
-        
-            if save_interval > 0 and (epoch + 1) % save_interval == 0:
+            # PERIODICALLY save history (for analysis)        
+            if self.save_interval > 0 and (epoch + 1) % self.save_interval == 0:
                 history_filename = f"checkpoint-{epoch + 1:04d}.pth"
                 torch.save(state, save_dir / history_filename)
-                self.logger.info(f"Saved historical checkpoint: {history_filename}")
+                self.logger.info(f"💾 Saved historical checkpoint: {history_filename}")
 
     def resume_from_checkpoint(self, checkpoint_path: str) -> None:
         """Resume training from a saved checkpoint. Loads the model, optimizer and scheduler state dictionaries.
@@ -326,7 +338,7 @@ class Engine(ABC):
             checkpoint_path (str): Path to the checkpoint file.
         """
 
-        self.logger.info(f"Loading checkpoint from {checkpoint_path}")
+        self.logger.info(f"📍 Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         
         self.start_epoch = checkpoint["epoch"] + 1
@@ -350,4 +362,4 @@ class Engine(ABC):
         if "scheduler_state" in checkpoint and self.schedulers:
             self._load_scheduler_state(checkpoint["scheduler_state"])
             
-        self.logger.info(f"Resumed from Epoch {self.start_epoch}")
+        self.logger.info(f"✅ Resumed from Epoch {self.start_epoch}")

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.amp.autocast_mode import autocast
-from torch.optim.optimizer import Optimizer as Optimizer
-from typing import Any
+from torch.optim.optimizer import Optimizer
+from typing import Any, cast
 
 from src.trainers.engine import Engine
 from src.evaluation.metrics import Metrics
@@ -22,12 +22,11 @@ class Noise2NoiseTrainer(Engine):
     # We don't need an __init__ here unless we need to add 
     # specific variables that Engine doesn't have. 
     # For now, Engine's __init__ is enough!
-    def __init__(self, model: nn.Module, criterion: dict[str, nn.Module], optimizers: torch.optim.Optimizer, **kwargs):
-        super().__init__(model=model, criterion=criterion, optimizers=optimizers, **kwargs)
-
-        self.model: nn.Module = model
-        self.criterion: dict[str, nn.Module] = criterion
-        self.optimizers: torch.optim.Optimizer = optimizers
+    def __init__(self, model: nn.Module, criterion: dict[str, nn.Module], optimizers: Optimizer, **kwargs):
+        super().__init__(model=model, optimizers=optimizers, criterion=criterion, **kwargs)
+        self.model = cast(nn.Module, self.model)
+        self.criterion = cast(dict[str, nn.Module], self.criterion)
+        self.optimizers = cast(torch.optim.Optimizer, self.optimizers)
         self.viz: Visualizer = Visualizer()
 
     def train_step(self, batch: Any, batch_idx: int) -> dict[str, float]:
@@ -49,7 +48,7 @@ class Noise2NoiseTrainer(Engine):
             
             # Weighted Sum (Alpha default 0.5)
             # You can tune 'loss_alpha' in your config.py
-            alpha = self.cfg.get("loss_alpha", 0.5)
+            alpha = self.kwargs.get("loss_alpha", 0.5)
             train_loss = (alpha * loss_mse) + ((1 - alpha) * loss_l1)
 
         # 4. Backward Pass & Optimization
@@ -82,7 +81,7 @@ class Noise2NoiseTrainer(Engine):
         # 3. Calculate Proxy Loss (Same as training)
         loss_mse = self.criterion['mse'](denoised_output, target)
         loss_l1 = self.criterion['l1'](denoised_output, target)
-        alpha = self.cfg.get("loss_alpha", 0.5)
+        alpha = self.kwargs.get("loss_alpha", 0.5)
         val_loss = (alpha * loss_mse) + ((1 - alpha) * loss_l1)
 
         # 4. Calculate Metrics
@@ -128,13 +127,14 @@ class Noise2NoiseTrainer(Engine):
         
         # Define the save path
         save_path = self.logger.log_dir / "training"
+        save_path.mkdir(parents=True, exist_ok=True)
         
         # Log and Save
         # Passing the path enables saving to disk.
-        if self.logger:
-            self.logger.log_image(
-                tag="val/comparison", 
-                images=grid, 
-                step=step, 
-                path=save_path
-            )
+        self.logger.log_image(
+            tag="val/comparison", 
+            images=grid, 
+            step=step, 
+            path=save_path
+        )
+    

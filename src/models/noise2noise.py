@@ -441,7 +441,7 @@ class Noise2Noise(nn.Module):
         out_channels: int = 1, 
         base_channels: int = 48, 
         depth: int = 4, 
-        activation_mode: str = 'leaky_relu'
+        activation: str = 'leaky_relu'
     ):
         """Initializes the generalized Noise2Noise U-Net.
 
@@ -466,13 +466,13 @@ class Noise2Noise(nn.Module):
         next_channels = base_channels
         
         for i in range(depth):
-            self.encoders.append(EncoderBlock(current_channels, next_channels, activation_mode))
+            self.encoders.append(EncoderBlock(current_channels, next_channels, activation))
             self.downsamples.append(DownsampleLayer(scale_factor=2))
             current_channels = next_channels
             next_channels *= 2 
 
         # --- BOTTLENECK ---
-        self.bottleneck = EncoderBlock(current_channels, next_channels, activation_mode)
+        self.bottleneck = EncoderBlock(current_channels, next_channels, activation)
         current_channels = next_channels 
         
         # --- DECODER PATH ---
@@ -487,7 +487,7 @@ class Noise2Noise(nn.Module):
                     in_channels=current_channels, 
                     skip_channels=skip_channels, 
                     out_channels=decoder_out_channels, 
-                    activation_mode=activation_mode
+                    activation_mode=activation
                 )
             )
             current_channels = decoder_out_channels
