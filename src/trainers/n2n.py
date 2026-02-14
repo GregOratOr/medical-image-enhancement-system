@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 from torch.amp.autocast_mode import autocast
@@ -42,6 +43,9 @@ class Noise2NoiseTrainer(Engine):
         with autocast(device_type=self.device.type, enabled=self.use_amp):
             output = self.model(source)
             
+            # Post-processing
+            output = self._post_output_operations(source=source, output=output)
+
             # 3. Calculate Loss
             loss_mse = self.criterion['mse'](output, target)
             loss_l1 = self.criterion['l1'](output, target)
@@ -137,4 +141,78 @@ class Noise2NoiseTrainer(Engine):
             step=step, 
             path=save_path
         )
+    
+    def _post_output_operations(self, source: torch.Tensor, output: torch.Tensor):
+        if self.kwargs.get("force_freq_op", False):
+            # We need the mask! (See Step 3 below)
+            mask = self._get_mask(source.shape, self.device) 
+            output = self._force_frequencies(output, source, mask)
+
+        return output
+
+    def _force_frequencies(self, denoised: torch.Tensor, source: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Performs the post-operation procedure of forcing known frequencies before loss calculation.
+
+        Args:
+            denoised (Tensor): The spatial prediction from the model.
+            source (Tensor): The original noisy input (contains the ground-truth acquired frequencies).
+            mask (Tensor): A [0, 1] mask where 1 indicates a 'known/trusted' frequency.
+            
+        Returns:
+            Tensor: The blended spatial image.
+        """
+        
+        orig_dtype = denoised.dtype
+        
+        # Upcast to float32 for mathematically stable FFTs
+        denoised_f32 = denoised.to(torch.float32)
+        source_f32 = source.to(torch.float32)
+        
+        # FFT and Shift
+        denoised_spec = torch.fft.fftshift(torch.fft.fft2(denoised_f32))
+        source_spec = torch.fft.fftshift(torch.fft.fft2(source_f32))
+        
+        # Match dtypes and devices
+        source_spec = source_spec.to(denoised_spec.dtype).to(denoised_spec.device)
+        mask_f32 = mask.to(denoised_spec.dtype).to(denoised_spec.device)
+        
+        # Force known frequencies using the mask
+        forced_spec = (source_spec * mask_f32) + (denoised_spec * (1.0 - mask_f32))
+        
+        # Shift back and IFFT to spatial domain
+        forced_spatial = torch.fft.ifft2(torch.fft.ifftshift(forced_spec)).real
+        
+        return forced_spatial
+    
+    def _get_mask(self, shape, device):
+        # Create a 32x32 square mask in the center of the frequencies
+        B, C, H, W = shape
+        mask = torch.zeros((B, C, H, W), device=device)
+
+        start_size = 32
+        end_size = 0  
+        
+        # ==========================================
+        # COSINE DECAY MATH
+        # ==========================================
+        # Calculates progress from 0.0 to 1.0
+        max_epochs = self.kwargs.get("max_epochs", 100)
+        progress = self.current_epoch / max_epochs
+        
+        # Cosine multiplier goes from 1.0 down to 0.0 smoothly
+        cosine_mult = 0.5 * (1.0 + math.cos(math.pi * progress))
+        
+        # Calculate current size based on the multiplier
+        current_size = int(end_size + (start_size - end_size) * cosine_mult)
+        
+        # Ensure it's an even number so the center box stays perfectly symmetric
+        if current_size % 2 != 0:
+            current_size += 1
+
+        if current_size <= 0:
+            return mask
+
+        cy, cx = H // 2, W // 2
+        mask[:, :, cy-16:cy+16, cx-16:cx+16] = 1.0
+        return mask
     
