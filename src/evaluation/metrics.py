@@ -1,7 +1,7 @@
 import inspect
 import torch
 from typing import Any, Callable
-from torchmetrics.functional import peak_signal_noise_ratio, structural_similarity_index_measure
+from torchmetrics.functional.image import peak_signal_noise_ratio, structural_similarity_index_measure
 
 class Metrics:
     """
