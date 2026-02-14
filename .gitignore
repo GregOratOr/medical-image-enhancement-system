@@ -12,3 +12,6 @@ wheels/
 
 # Virtual environments
 .venv
+/experiments
+TODO.md
+main.py
