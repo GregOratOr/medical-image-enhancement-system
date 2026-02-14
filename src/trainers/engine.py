@@ -15,13 +15,26 @@ class FallbackLogger:
     Used when no UnifiedLogger is provided.
     """
     def __init__(self):
-        self.log_dir = Path(f"./tests/debug/Experiment-{datetime.now()}") # Default for debug runs
+        self.log_dir = Path(f"./experiments/debug/Experiment-{datetime.now()}") # Default for debug runs
+        self.log_interval = 10
         self.info("[Engine] FallbackLogger assigned and initialized.")
         self.info("[Engine] NOTE: This logger only prints to console.")
     
     def info(self, msg: str):
-        print(f"[Engine] {msg}")
+        print(f"[INFO] [Engine] {msg}")
     
+    def warning(self, msg: str) -> None:
+        print(f"[WARNING] [Engine] {msg}")
+
+    def error(self, msg: str) -> None:
+        print(f"[ERROR] [Engine] {msg}")
+
+    def critical(self, msg: str) -> None:
+        print(f"[CRITICAL] [Engine] {msg}")
+    
+    def debug(self, msg: str) -> None:
+        print(f"[DEBUG] [Engine] {msg}")
+
     def log_metrics(self, *args, **kwargs): pass # Do nothing
     def log_image(self, *args, **kwargs): pass  # Do nothing
     def close(self): pass # Do nothing

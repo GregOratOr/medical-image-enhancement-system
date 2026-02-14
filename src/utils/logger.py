@@ -22,7 +22,8 @@ class UnifiedLogger:
         name: str = "LOGGER",
         config: dict | None = None,
         use_tensorboard: bool = False,
-        use_wandb: bool = False
+        use_wandb: bool = False,
+        log_interval: int = 10
     ) -> None:
         """Initializes the UnifiedLogger with specified backends.
 
@@ -40,7 +41,8 @@ class UnifiedLogger:
 
         self.use_tb = use_tensorboard
         self.use_wandb = use_wandb
-        
+        self.log_interval = log_interval
+
         self.name = name
         self.project_name = "New_Project" if not project_name else project_name
 
@@ -163,19 +165,19 @@ class UnifiedLogger:
             prefix (str, optional): A string prefix to group metrics (e.g., 'train', 'val'). Defaults to "".
         """
         # Log to Console (Optional: filtering for specific intervals)
-        if step % 10 == 0:
+        if step % self.log_interval == 0:
             self.info(f"Step {step} | {prefix} {metrics}")
 
-        # Log to TensorBoard
-        if self.tb_writer:
-            for name, val in metrics.items():
-                self.tb_writer.add_scalar(f"{prefix}/{name}", val, step)
+            # Log to TensorBoard
+            if self.tb_writer:
+                for name, val in metrics.items():
+                    self.tb_writer.add_scalar(f"{prefix}/{name}", val, step)
 
-        # Log to W&B
-        if self.use_wandb:
-            # W&B likes a flat dict; we add the prefix to the key
-            wandb_metrics = {f"{prefix}/{k}" if prefix else k: v for k, v in metrics.items()}
-            wandb.log(wandb_metrics, step=step)
+            # Log to W&B
+            if self.use_wandb:
+                # W&B likes a flat dict; we add the prefix to the key
+                wandb_metrics = {f"{prefix}/{k}" if prefix else k: v for k, v in metrics.items()}
+                wandb.log(wandb_metrics, step=step)
 
     def log_image(self, tag: str, images: list[torch.Tensor] | torch.Tensor, step: int, path:str | Path | None=None) -> None:
         """Logs an image or list of images to Disk, TensorBoard, and W&B.
