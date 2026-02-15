@@ -150,7 +150,7 @@ class Config:
             if ids:
                 next_id = max(ids) + 1
 
-        # Format Run Name: exp-{N:02d}-{name}-{tags}_{date}
+        # Format Run Name: {name}-{N:02d}-{tags}_{date}
         timestamp = datetime.now().strftime("%Y-%m-%d")
         tags_str = "-".join(self.experiment.tags) if self.experiment.tags else ""
         
@@ -166,4 +166,46 @@ class Config:
         # Create directories
         self.run_dir.mkdir(exist_ok=True)
 
+@dataclass
+class InferenceConfig:
+    """Master Config object for model inferencing"""
+
+    root_dir: Path = Path("./inferences")
+    base_name: str = "run"
+    seed: int = 42
+    use_gpu: bool = True
+    run_dir: Path = field(init=False)
+
+    models: list[Model] = field(default_factory=list)
+    inference: dict = field(default_factory=dict)
     
+    def __post_init__(self):
+        self._setup_directories()
+
+    def _setup_directories(self):
+        """Automatically resolves the base directory structure for the run."""
+        next_id = 0
+        existing_exps = [p.name for p in self.root_dir.iterdir() if p.is_dir() and p.name.startswith(f"{self.base_name}-")]
+        
+        if existing_exps:
+            ids = []
+            for name in existing_exps:
+                # Regex: match "name-ID" to extract the ID
+                match = re.search(fr"{self.base_name}-(\d+)", name)
+                if match:
+                    ids.append(int(match.group(1)))
+            if ids:
+                next_id = max(ids) + 1
+
+        components = [self.base_name, f"{next_id:02d}"]
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        tags_str = "-".join(self.inference.get('tags', []))
+        if tags_str: components.append(tags_str)
+        components.append(timestamp)
+
+        # Format Run Name: {name}-{N:02d}-{tags}_{date}
+        run_name = "-".join(c for c in components if c)
+
+        self.run_dir = self.root_dir / run_name
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+

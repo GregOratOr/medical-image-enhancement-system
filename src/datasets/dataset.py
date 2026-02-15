@@ -4,7 +4,8 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
 import torchvision.transforms as T
-from typing import Callable, Optional
+import torchvision.transforms.functional as F
+from typing import Callable
 
 class CTScans(Dataset):
     """A PyTorch Dataset for loading CT scan images and applying noise on-the-fly.
@@ -17,7 +18,7 @@ class CTScans(Dataset):
         - 'n2c': Returns (Noisy, Clean) for standard supervised Noise2Clean.
     """
 
-    def __init__(self, image_dir: Path | str, transform: Optional[Callable]=None, noise_transform: Optional[Callable]=None, mode: str="n2n") -> None:
+    def __init__(self, image_dir: Path | str, transform: Callable | None= None, noise_transform: Callable | None= None, mode: str="n2n") -> None:
         """Initializes the CTScans dataset.
 
         Args:
@@ -95,3 +96,37 @@ class CTScans(Dataset):
         # Fallback if no noise transform. Just return (clean, clean) or (clean, clean, clean) depending on mode.
         warnings.warn("No Noise Transforms provides, falling back to clean image tuples")
         return (clean_img, clean_img) if self.mode == 'n2c' else (clean_img, clean_img, clean_img)
+    
+class InferenceDataset(Dataset):
+    """
+    A lightweight PyTorch Dataset strictly for loading unlabelled images 
+    during inference. Returns the image tensor and its original filename.
+    """
+    def __init__(self, data_path: str | Path):
+        self.data_path = Path(data_path)
+        
+        # Recursively grab common image formats (useful if they are in subfolders)
+        valid_extensions = {'.png', '.jpg', '.jpeg', '.tif', '.tiff'}
+        self.image_paths = [
+            p for p in self.data_path.rglob("*") 
+            if p.suffix.lower() in valid_extensions
+        ]
+        
+        if not self.image_paths:
+            raise FileNotFoundError(f"❌ No valid images found in {self.data_path.absolute()}")
+
+    def __len__(self) -> int:
+        return len(self.image_paths)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, str]:
+        img_path = self.image_paths[idx]
+        
+        # Load and convert to Grayscale
+        img = Image.open(img_path).convert("L")
+        
+        # Convert to tensor: shape becomes [1, H, W], scaled to [0.0, 1.0]
+        tensor = F.to_tensor(img)
+        
+        # Return the tensor AND the filename
+        return tensor, img_path.name
+

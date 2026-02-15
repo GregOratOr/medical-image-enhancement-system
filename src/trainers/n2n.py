@@ -119,7 +119,7 @@ class Noise2NoiseTrainer(Engine):
             step (int): The current epoch.
         """
 
-        # Create the rich 3-row grid using Visualizer
+        # Create the rich 3-row grid per image using Visualizer
         # (Spatial Domain | Frequency Domain | Error Maps)
         grid = self.viz.create_grid(
             clean_gt=clean_gt,
