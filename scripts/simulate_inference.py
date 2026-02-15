@@ -2,14 +2,15 @@ import gc
 import draccus
 
 import torch
+import torchvision.transforms as T
 import torchvision.transforms.functional as F
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
 from src.models.wrappers import DynamicPadWrapper
-from src.datasets.dataset import InferenceDataset
+from src.datasets.dataset import SimulationDataset
 from configs.config import InferenceConfig
-from src.utils.factories import resolve_models, resolve_device
+from src.utils.factories import resolve_models, resolve_device, resolve_noise_transforms
 
 def main():
 
@@ -32,7 +33,18 @@ def main():
     data_path = cfg.inference['data_path']
     print(f"🔍 Loading dataset from: {data_path}")
     
-    dataset = InferenceDataset(data_path)
+    common_transforms = T.Compose([
+        T.CenterCrop(256),
+        T.ToTensor()
+    ])
+    noise_transforms = resolve_noise_transforms(cfg.inference["noise_params"])
+
+    
+    dataset = SimulationDataset(
+        data_path=data_path,
+        transforms=common_transforms,
+        noise_transforms=noise_transforms,
+    )
 
     dataloader = DataLoader(
         dataset,
@@ -65,12 +77,13 @@ def main():
     print("✅ Model loaded, wrapped, and ready for inference.")
     
     print("✨ Starting Denoising...")
+    
     with torch.inference_mode():
-        for images, filenames in tqdm(dataloader, desc="Inference Progress"):
+        for images, filenames, clean_imgs in tqdm(dataloader, desc="Inference Progress"):
             # Move images to GPU
             images = images.to(device)
             
-            # Forward pass
+            # Forward pass (Dynamic padding handles everything under the hood)
             outputs = model(images)
             
             # Post-process: Ensure range [0.0, 1.0]
@@ -78,18 +91,25 @@ def main():
             
             # outputs: GPU -> CPU for saving.
             outputs = outputs.cpu()
+            clean_imgs = clean_imgs.cpu()
             images = images.cpu()
             
-            # Iterate through the batch and save
-            for output_tensor, filename, input in zip(outputs, filenames, images):
-                # 3D tensor [1, H, W] -> 2D PIL Image
+            # Iterate through the batch to save each image individually
+            for output_tensor, filename, clean_tensor, input_tensor in zip(outputs, filenames, clean_imgs, images):
+                # # 3D tensor [1, H, W] -> 2D PIL Image
                 output_img = F.to_pil_image(output_tensor)
-                # final_img = [ [input]+[output] ]
-                final_img = F.to_pil_image(torch.cat([input, output_tensor], dim=2))
-                # Save the images
+                clean_img = F.to_pil_image(clean_tensor)
+                input_img = F.to_pil_image(input_tensor)
+                # final_img = [ [input]+[output]+[ground_truth] ]
+                final_img = F.to_pil_image(torch.cat([input_tensor, output_tensor, clean_tensor], dim=2))
+
+                # Save the image
+                clean_img.save(cfg.run_dir / f"{filename}")
+                input_img.save(cfg.run_dir / f"inp_{filename}")
                 output_img.save(cfg.run_dir / f"denoised_{filename}")
-                final_img.save(cfg.run_dir / f"input_denoised_pair_{filename}")
-               
+                final_img.save(cfg.run_dir / f"inp-op-gt_{filename}")
+                
+                
     print(f"✅ Pipeline Complete! All results saved to: {cfg.run_dir.absolute()}")
 
     del model

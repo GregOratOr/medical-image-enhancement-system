@@ -97,6 +97,44 @@ class CTScans(Dataset):
         warnings.warn("No Noise Transforms provides, falling back to clean image tuples")
         return (clean_img, clean_img) if self.mode == 'n2c' else (clean_img, clean_img, clean_img)
     
+class SimulationDataset(Dataset):
+    def __init__(self, data_path: str | Path, transforms: Callable | None= None, noise_transforms: Callable | None= None):
+        self.data_path = Path(data_path)
+        self.transforms = transforms
+        self.noise_transforms = noise_transforms
+        # Recursively grab common image formats (useful if they are in subfolders)
+        valid_extensions = {'.png', '.jpg', '.jpeg', '.tif', '.tiff'}
+        self.image_paths = [
+            p for p in self.data_path.rglob("*") 
+            if p.suffix.lower() in valid_extensions
+        ]
+        
+        if not self.image_paths:
+            raise FileNotFoundError(f"❌ No valid images found in {self.data_path.absolute()}")
+
+    def __len__(self) -> int:
+        return len(self.image_paths)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, str, torch.Tensor]:
+        img_path = self.image_paths[idx]
+        
+        # Load and convert to Grayscale
+        clean_img = Image.open(img_path).convert("L")
+
+        if self.transforms:
+            clean_img = self.transforms(clean_img)
+        else:
+            clean_img = T.ToTensor()(clean_img)
+        
+        if self.noise_transforms:
+        # Generate first noisy version (Input)
+            noisy_1 = self.noise_transforms(clean_img.clone())
+
+            return noisy_1, img_path.name, clean_img
+        
+        # Return the tensor AND the filename
+        return clean_img, img_path.name, clean_img
+
 class InferenceDataset(Dataset):
     """
     A lightweight PyTorch Dataset strictly for loading unlabelled images 
