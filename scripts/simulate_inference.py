@@ -37,7 +37,7 @@ def main():
         T.CenterCrop(256),
         T.ToTensor()
     ])
-    noise_transforms = resolve_noise_transforms(cfg.inference["noise_params"])
+    noise_transforms = resolve_noise_transforms(cfg.inference.get("noise_params", {}))
 
     
     dataset = SimulationDataset(

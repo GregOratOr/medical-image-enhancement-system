@@ -32,26 +32,26 @@ def resolve_noise_transforms(noise_list: list[dict]) -> T.Compose:
     """Factory: dynamically builds the noise pipeline from config."""
 
     transforms = []
-    
-    for noise_item in noise_list:
-        noise_type = noise_item.get("type")
-        params = noise_item.get("params", {})
+    if noise_list:
+        for noise_item in noise_list:
+            noise_type = noise_item.get("type")
+            params = noise_item.get("params", {})
 
-        if not noise_type:
-            continue
-        
-        noise_type = noise_type.lower()
+            if not noise_type:
+                continue
+            
+            noise_type = noise_type.lower()
 
-        if noise_type not in NOISE_REGISTRY:
-            raise ValueError(f"Unknown noise type: '{noise_type}'. Available: {list(NOISE_REGISTRY.keys())}")
+            if noise_type not in NOISE_REGISTRY:
+                raise ValueError(f"Unknown noise type: '{noise_type}'. Available: {list(NOISE_REGISTRY.keys())}")
 
-        NoiseClass = NOISE_REGISTRY[noise_type]
+            NoiseClass = NOISE_REGISTRY[noise_type]
 
-        try:
-            transforms.append(NoiseClass(**params))
-            print(f"➕ Added Noise: {noise_type}")
-        except TypeError as e:
-            raise TypeError(f"Error initializing {noise_type}: {e}. Check your YAML params!")
+            try:
+                transforms.append(NoiseClass(**params))
+                print(f"➕ Added Noise: {noise_type}")
+            except TypeError as e:
+                raise TypeError(f"Error initializing {noise_type}: {e}. Check your YAML params!")
     
     return T.Compose(transforms)
 
@@ -74,25 +74,25 @@ def resolve_models(model_configs: list[Model], device: torch.device) -> dict[str
     }
 
     models_dict = {}
-    
-    for model in model_configs:
-        if model.name not in MODEL_REGISTRY:
-            raise ValueError(
-                f"❌ Model '{model.name}' not found in registry. "
-                f"⚠️ Available models: {list(MODEL_REGISTRY.keys())}"
-            )
+    if model_configs:
+        for model in model_configs:
+            if model.name not in MODEL_REGISTRY:
+                raise ValueError(
+                    f"❌ Model '{model.name}' not found in registry. "
+                    f"⚠️ Available models: {list(MODEL_REGISTRY.keys())}"
+                )
+                
+            ModelClass = MODEL_REGISTRY[model.name]
             
-        ModelClass = MODEL_REGISTRY[model.name]
-        
-        print(f"🧠 Instantiating Model: '{model.name}'")
-        
-        # 2. Instantiate using **model_params and move to device
-        try:
-            model_instance = ModelClass(**model.model_params).to(device)
-            models_dict[model.name] = model_instance
-        except TypeError as e:
-            raise TypeError(f"❌ Error initializing model '{model.name}': {e}. Check your YAML model_params!")
+            print(f"🧠 Instantiating Model: '{model.name}'")
             
+            # 2. Instantiate using **model_params and move to device
+            try:
+                model_instance = ModelClass(**model.model_params).to(device)
+                models_dict[model.name] = model_instance
+            except TypeError as e:
+                raise TypeError(f"❌ Error initializing model '{model.name}': {e}. Check your YAML model_params!")
+                
     return models_dict
 
 
@@ -101,40 +101,41 @@ def resolve_optimizers(models_dict: dict[str, torch.nn.Module], optimizer_config
     
     optimizers = {}
 
-    for optimizer in optimizer_configs:
-        # Copy of params to avoid mutating the original config
-        kwargs = optimizer.params.copy()
+    if optimizer_configs:
+        for optimizer in optimizer_configs:
+            # Copy of params to avoid mutating the original config
+            kwargs = optimizer.params.copy()
 
-        # Extract the model linkage
-        model_label = kwargs.pop("model_label", None)
-        
-        if not model_label:
-            raise ValueError(
-                f"❌ Optimizer '{optimizer.label}' is missing 'model_label' in its params. "
-                "⚠️ It needs to know which model to optimize!"
-            )
+            # Extract the model linkage
+            model_label = kwargs.pop("model_label", None)
             
-        if model_label not in models_dict:
-            raise KeyError(
-                f"❌ Model '{model_label}' requested by optimizer '{optimizer.label}' "
-                f"was not found. ⚠️ Available models: {list(models_dict.keys())}"
-            )
+            if not model_label:
+                raise ValueError(
+                    f"❌ Optimizer '{optimizer.label}' is missing 'model_label' in its params. "
+                    "⚠️ It needs to know which model to optimize!"
+                )
+                
+            if model_label not in models_dict:
+                raise KeyError(
+                    f"❌ Model '{model_label}' requested by optimizer '{optimizer.label}' "
+                    f"was not found. ⚠️ Available models: {list(models_dict.keys())}"
+                )
 
-        target_model = models_dict[model_label]
+            target_model = models_dict[model_label]
 
-        # Fetch the Optimizer class dynamically from PyTorch
-        try:
-            opt_class = getattr(torch.optim, optimizer.name)
-        except AttributeError:
-            raise ValueError(f"Optimizer '{optimizer.name}' is not a valid torch.optim class.")
+            # Fetch the Optimizer class dynamically from PyTorch
+            try:
+                opt_class = getattr(torch.optim, optimizer.name)
+            except AttributeError:
+                raise ValueError(f"Optimizer '{optimizer.name}' is not a valid torch.optim class.")
 
-        # 4. Instantiate
-        try:
-            opt_instance = opt_class(target_model.parameters(), **kwargs)
-            optimizers[optimizer.label] = opt_instance
-            print(f"🔧 Resolved Optimizer: '{optimizer.label}' ({optimizer.name}) -> Linked to Model: '{model_label}'")
-        except TypeError as e:
-            raise TypeError(f"❌ Error initializing optimizer '{optimizer.name}': {e}. Check your YAML params!")
+            # 4. Instantiate
+            try:
+                opt_instance = opt_class(target_model.parameters(), **kwargs)
+                optimizers[optimizer.label] = opt_instance
+                print(f"🔧 Resolved Optimizer: '{optimizer.label}' ({optimizer.name}) -> Linked to Model: '{model_label}'")
+            except TypeError as e:
+                raise TypeError(f"❌ Error initializing optimizer '{optimizer.name}': {e}. Check your YAML params!")
 
     return optimizers
 
@@ -220,7 +221,8 @@ def resolve_schedulers(optimizers_dict: dict[str, torch.optim.Optimizer], schedu
         return instance
 
     # Kick off the recursive build process for all defined schedulers
-    for cfg in scheduler_configs:
-        build_scheduler(cfg.label)
+    if scheduler_configs:
+        for cfg in scheduler_configs:
+            build_scheduler(cfg.label)
 
     return scheduler_instances
