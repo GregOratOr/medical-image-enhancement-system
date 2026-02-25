@@ -26,8 +26,8 @@ class DynamicPadWrapper(nn.Module):
         pad_h = (self.multiple_of - (h % self.multiple_of)) % self.multiple_of
         pad_w = (self.multiple_of - (w % self.multiple_of)) % self.multiple_of
         
-        if pad_h > 0 or pad_w > 0:
-            x = F.pad(x, (0, pad_w, 0, pad_h), mode='reflect')
+        # if pad_h > 0 or pad_w > 0:
+        x = F.pad(x, (0, pad_w, 0, pad_h), mode='reflect')
         
         out = self.base_model(x)
 
