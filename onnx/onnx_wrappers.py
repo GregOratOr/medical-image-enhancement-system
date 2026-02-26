@@ -47,7 +47,7 @@ class ONNXPadWrapper:
         x = x.astype(np.float32)
 
         # Forward pass through the pure ONNX model.
-        out = self.session.run([self.output_name], {self.input_name: x})
+        out = self.session.run([self.output_name], {self.input_name: x})[0]
         
         out = np.asarray(out)
 
