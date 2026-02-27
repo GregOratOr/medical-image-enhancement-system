@@ -46,7 +46,8 @@ with col1:
         """)
         st.write("") # Spacer
         
-        st.button("Coming Soon", disabled=True, width="stretch")
+        if st.button("Launch Inspector", type="primary", width="stretch"):
+            st.switch_page(inspector_page)
 
 with col2:
     with st.container(border=True):

@@ -10,7 +10,14 @@ dashboard_page = st.Page(
     default=True
 )
 
+inspector_page = st.Page(
+    "pages/1_Image_Inspector.py", 
+    title="Image Inspector", 
+    icon="🔍"
+)
+
 
 APP_PAGES = [
     dashboard_page, 
+    inspector_page,
 ]
