@@ -1,5 +1,5 @@
 # onnx/onnx_inference.py
-
+import gc
 import sys
 import time
 import numpy as np
@@ -7,8 +7,8 @@ from PIL import Image
 from pathlib import Path
 from tqdm import tqdm
 
-from inference_gpu import GPUInference
-from inference_cpu import CPUInference
+from onnx.inference_gpu import GPUInference
+from onnx.inference_cpu import CPUInference
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
@@ -19,18 +19,52 @@ class InferenceManager:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.model_path = Path(model_path) / f"{model_name}.onnx"
+        self.root_model_path = Path(model_path)
+        
+        self.pipeline = None
+        self.update_engine(model_name, enable_cuda, wrapped_model)
 
-        if enable_cuda:
-            self.pipeline = GPUInference(
-                onnx_path=self.model_path.__str__(),
-                tile_size=512,
-                overlap_ratio=0.5,
-                batch_size=4,
-                is_wrapped_externally=wrapped_model
-            )
-        else:
-            self.pipeline = CPUInference(onnx_path=self.model_path.__str__(), is_wrapped_externally=wrapped_model)
+    def update_engine(self, model_name: str, enable_cuda: bool, wrapped_model: bool):
+        """
+        Hot-swaps the inference backend.
+        Releases old resources -> Loads new model -> Updates pipeline.
+        """
+        print(f"🔄 InferenceManager: Swapping to {model_name} (CUDA={enable_cuda})...")
+
+        # CLEANUP OLD PIPELINE
+        if self.pipeline is not None:
+            if hasattr(self.pipeline, 'release_resources'):
+                self.pipeline.release_resources()
+
+            del self.pipeline
+            gc.collect()
+            self.pipeline = None
+
+        # SETUP PATHS
+        self.model_path = self.root_model_path / f"{model_name}.onnx"
+        if not self.model_path.exists():
+            raise FileNotFoundError(f"❌ Model not found: {self.model_path}")
+
+        # INITIALIZE NEW PIPELINE
+        try:
+            if enable_cuda:
+                self.pipeline = GPUInference(
+                    onnx_path=str(self.model_path),
+                    tile_size=512,
+                    overlap_ratio=0.5,
+                    batch_size=4,
+                    is_wrapped_externally=wrapped_model
+                )
+            else:
+                self.pipeline = CPUInference(
+                    onnx_path=str(self.model_path), 
+                    is_wrapped_externally=wrapped_model
+                )
+            print("✅ InferenceManager: Engine Loaded Successfully.")
+            
+        except Exception as e:
+            print(f"❌ Failed to load engine: {e}")
+            raise e
 
     def process_image(self, img_path: Path) -> np.ndarray:
         """Loads an image using PIL and formats it exactly like PyTorch's ToTensor()"""
@@ -63,6 +97,9 @@ class InferenceManager:
         Image.fromarray(img_array, mode="L").save(output_path)
     
     def run(self):
+
+        assert self.pipeline is not None, "Inference Pipeline not Initialized."
+
         valid_extensions = {'.png', '.jpg', '.jpeg', '.tif'}
         image_paths = [p for p in self.input_dir.rglob("*") if p.suffix.lower() in valid_extensions]
         
