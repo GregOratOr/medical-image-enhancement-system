@@ -1,7 +1,7 @@
 # app/pages/0_Dashboard.py
 
 import streamlit as st
-from routes import inspector_page
+from routes import inspector_page, batch_page
 from components.sidebar import render_sidebar
 from components.header import render_header
 
@@ -53,13 +53,12 @@ with col2:
     with st.container(border=True):
         st.subheader("📦 Batch Processor")
         st.markdown("""
-        * Process entire folders of slices.
+        * Process entire folders of slices or selection of files uploaded.
         * Auto-zipping and bulk processing.
-        * _(Currently in development)_
         """)
         st.write("") # Spacer
         
-        # Disabled button for features not yet built
-        st.button("Coming Soon", disabled=True, width="stretch")
+        if st.button("Launch Batch Processor", type="primary", width="stretch"):
+            st.switch_page(batch_page)
 
 st.markdown("---")

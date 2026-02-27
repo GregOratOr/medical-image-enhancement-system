@@ -16,8 +16,14 @@ inspector_page = st.Page(
     icon="🔍"
 )
 
+batch_page = st.Page(
+    "pages/2_Batch_Processor.py", 
+    title="Batch Processor", 
+    icon="📦"
+)
 
 APP_PAGES = [
     dashboard_page, 
     inspector_page,
+    batch_page
 ]
