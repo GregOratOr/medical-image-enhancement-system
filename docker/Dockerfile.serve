@@ -1,0 +1,75 @@
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+# Prevent Python from buffering logs
+ENV PYTHONUNBUFFERED=1
+
+# Prevent Ubuntu from asking for user input during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+ENV PYTHON_VERSION=3.14.3
+
+# Update Ubuntu and install Python, pip, and curl
+# RUN apt-get update && apt-get install -y curl && \
+#     rm -rf /var/lib/apt/lists/*
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    curl \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libffi-dev \
+    liblzma-dev \
+    tk-dev \
+    uuid-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build Python 3.14.3
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
+    tar -xzf Python-${PYTHON_VERSION}.tgz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations --prefix=/usr/local && \
+    make -j"$(nproc)" && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tgz
+
+# Make python default
+RUN ln -s /usr/local/bin/python3.14 /usr/local/bin/python && \
+    ln -s /usr/local/bin/pip3.14 /usr/local/bin/pip
+
+# Download and install the 'uv' package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add 'uv' to the system PATH so Docker knows where to find it
+ENV PATH="/root/.local/bin:$PATH"
+
+# Verify uv sees Python 3.14
+RUN uv --version && python --version
+
+# Create a folder called 'workspace' and CD into it
+WORKDIR /workspace
+
+# Install ONLY the necessary inference dependencies
+RUN uv pip install --system --no-cache-dir \
+    "fastapi>=0.133.0" \
+    "uvicorn>=0.41.0" \
+    "python-multipart>=0.0.22" \
+    "streamlit>=1.54.0" \
+    "matplotlib>=3.10.8" \
+    "streamlit-image-comparison>=0.0.4" \
+    "onnxruntime-gpu>=1.24.1" \
+    "pillow>=12.0.0" \
+    "tqdm>=4.66.5"
+
+# Copy all project files from your computer into the container's workspace
+COPY . /workspace
+
+# Start the FastAPI server by default when the container runs
+CMD ["uv", "run", "uvicorn", "api.api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+

@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.serve
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./onnx/models:/workspace/onnx/models
+      - ./docker_out:/workspace/docker_out
+    environment:
+      - CLOUD_DEPLOYMENT=True
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.serve
+    # Override the default Uvicorn command to start Streamlit instead!
+    command: ["streamlit", "run", "app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./docker_out:/workspace/docker_out
+    environment:
+      # Tell Streamlit exactly how to find the FastAPI server on Docker's internal network
+      - API_URL=http://backend:8000
+    depends_on:
+      - backend

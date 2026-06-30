@@ -5,20 +5,39 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "kornia>=0.8.2",
+    "draccus>=0.11.5",
+    "fastapi>=0.133.0",
     "matplotlib>=3.10.8",
     "netcdf4",
+    "onnx>=1.20.1",
+    "onnxruntime-gpu>=1.24.1",
+    "onnxscript>=0.6.2",
     "pillow>=12.0.0",
+    "python-multipart>=0.0.22",
     "scikit-image>=0.26.0",
-    "sewar>=0.4.6",
+    "streamlit>=1.54.0",
+    "streamlit-image-comparison>=0.0.4",
+    "tensorboard>=2.20.0",
     "torch",
     "torchaudio",
+    "torchmetrics>=1.0.3",
     "torchvision",
     "tqdm>=4.66.5",
+    "uvicorn>=0.41.0",
+    "wandb>=0.24.2",
 ]
 
 [tool.uv]
 index-url = "https://pypi.org/simple"
 extra-index-url = [
   "https://download.pytorch.org/whl/cu130"
+]
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.0",
+    "mkdocs-toggle-sidebar-plugin>=0.0.9",
+    "mkdocstrings[python]>=1.0.3",
+    "pymdown-extensions>=10.20.1",
 ]
