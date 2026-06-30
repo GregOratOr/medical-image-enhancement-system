@@ -33,7 +33,9 @@ plugins:
         python:
           setup_commands:
             - import sys
-            - sys.path.append("src") # Points to your source code directory
+            # Allow mkdocstrings to import modules using the repo root.
+            # The codebase imports modules as `src.<module>`, so we need the root on sys.path.
+            - sys.path.append(".")
           options:
             show_source: true
             show_root_heading: true

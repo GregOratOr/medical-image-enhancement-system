@@ -39,7 +39,11 @@ The primary class for loading processed PNG images, optimized for high-throughpu
 
 ### Medical Data Augmentation
 
-Coming Soon...
+This repo currently focuses on **noise injection** and basic preprocessing. If you want additional augmentation (rotations, flips, intensity transforms), this is a good place to add it.
+
+For now, see:
+- Noise modules: `src/transforms/noise.py`
+- Factory construction from YAML: `src/utils/factories.py` (`resolve_noise_transforms`)
 
 <!-- 
 Utilities for on-the-fly augmentation specific to medical imaging. 

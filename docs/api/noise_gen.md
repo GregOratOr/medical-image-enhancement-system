@@ -1,18 +1,23 @@
 # Noise Generation API
 
-Utilities for simulating various noise profiles (Gaussian, Poisson, Speckle) to create noisy-noisy pairs for training.
+Utilities for simulating various noise profiles to create noisy–noisy pairs for Noise2Noise training.
 
-## Mathematical Implementations
-We implement noise injection following the zero-mean requirement:
+---
+
+## Mathematical note
+
+Noise injection typically follows the zero-mean requirement:
 
 $$\hat{z} = z + \mathcal{N}(0, \sigma^2)$$
 
-Where $\mathcal{N}$ represents the stochastic noise component that the model learns to ignore.
+Where \(\mathcal{N}\) represents the stochastic noise component that the model learns to ignore.
 
-## Noise Modules
+---
+
+## Noise modules
 
 ::: src.transforms.noise
     options:
-        show_root_heading: true
-        show_source: false
+      show_root_heading: true
+      show_source: false
 
