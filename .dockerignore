@@ -1,0 +1,29 @@
+# Git and IDE
+.git
+.gitignore
+.vscode
+
+# Python Virtual Environments & Cache
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# Heavy Training Data & Experimental Logs
+data/
+experiments/
+inferences/
+
+# Source Code Not Needed for ONNX Inference
+src/
+scripts/
+tests/
+
+# Documentation
+docs/
+mkdocs.yml
+README.md
+TODO.md
+
+# Docker Outputs (Links to host's HDD)
+docker_out/
