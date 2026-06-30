@@ -12,6 +12,7 @@ wheels/
 
 # Virtual environments
 .venv
+.vscode
 /experiments
 TODO.md
 /inferences

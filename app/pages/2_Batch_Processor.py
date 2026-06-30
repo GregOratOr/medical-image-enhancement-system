@@ -4,8 +4,6 @@ import io
 import os
 import gc
 import zipfile
-import tkinter as tk
-from tkinter import filedialog
 import streamlit as st
 from pathlib import Path
 
@@ -19,23 +17,6 @@ st.set_page_config(
     layout="wide"
 )
 
-def get_local_folder_path():
-    """Opens a native OS folder browser dialog and returns the path."""
-    # Set up a hidden Tkinter root window
-    root = tk.Tk()
-    root.withdraw()
-    
-    # Force the window to appear on top of the web browser
-    root.wm_attributes('-topmost', 1)
-    
-    # Open the dialog
-    folder_path = filedialog.askdirectory(parent=root, title="Select a Folder of Medical Scans")
-    
-    # Destroy the root window after selection
-    root.destroy()
-    
-    return folder_path
-
 client = ApiClient()
 
 render_sidebar(show_controls=True)
@@ -48,14 +29,38 @@ render_header(
 # Optional: Set this environment variable in your cloud deployment to hide the Local Tab
 is_cloud_env = os.environ.get("CLOUD_DEPLOYMENT", "false").lower() == "true"
 
-# 1. Initialize tab2 to None
+# Initialize tab2 to None
 tab2 = None
 
-# 2. Safely create tabs based on environment
 if not is_cloud_env:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        def get_local_folder_path():
+            """Opens a native OS folder browser dialog and returns the path."""
+            # Set up a hidden Tkinter root window
+            root = tk.Tk()
+            root.withdraw()
+            
+            # Force the window to appear on top of the web browser
+            root.wm_attributes('-topmost', 1)
+            
+            # Open the dialog
+            folder_path = filedialog.askdirectory(parent=root, title="Select a Folder of Medical Scans")
+            
+            # Destroy the root window after selection
+            root.destroy()
+            
+            return folder_path
+        
+    except ImportError:
+        pass
+    
     tab1, tab2 = st.tabs(["☁️ File Uploader **[Lite]**", "📁 Local Folder **[Heavy-Duty]**"])
 else:
     tab1, = st.tabs(["☁️ File Uploader **[Lite]**"]) 
+
 
 # ==========================================
 # TAB 1: WEB UPLOADER (IN-MEMORY ZIP) - Always Exists
@@ -139,7 +144,7 @@ if tab2 is not None:
         with btn_col:
             if st.button("📁 Browse Folder", width="content"):
                 # Open the native OS dialog and save to session state
-                selected_path = get_local_folder_path()
+                selected_path = get_local_folder_path() # type: ignore
                 if selected_path:
                     st.session_state.local_input_dir = selected_path
                     st.rerun() # Refresh the UI to show the new path
